@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/home/derballo/Dev/AtmosphereLutGenerator/build",
+  "command": "/usr/bin/c++   -O3 -march=native -mtune=native -DNDEBUG -flto -fno-omit-frame-pointer -std=gnu++26 -o CMakeFiles/AtmosphereLutGenerator.dir/src/main.cpp.o -c /home/derballo/Dev/AtmosphereLutGenerator/src/main.cpp",
+  "file": "/home/derballo/Dev/AtmosphereLutGenerator/src/main.cpp",
+  "output": "CMakeFiles/AtmosphereLutGenerator.dir/src/main.cpp.o"
+}
+]

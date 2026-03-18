@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -march=native -mtune=native -DNDEBUG -flto -fno-omit-frame-pointer -s -flto -Wl,--dependency-file=CMakeFiles/AtmosphereLutGenerator.dir/link.d CMakeFiles/AtmosphereLutGenerator.dir/src/main.cpp.o -o AtmosphereLutGenerator

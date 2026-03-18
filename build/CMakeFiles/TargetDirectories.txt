@@ -1,3 +1,0 @@
-/home/derballo/Dev/AtmosphereLutGenerator/build/CMakeFiles/AtmosphereLutGenerator.dir
-/home/derballo/Dev/AtmosphereLutGenerator/build/CMakeFiles/edit_cache.dir
-/home/derballo/Dev/AtmosphereLutGenerator/build/CMakeFiles/rebuild_cache.dir

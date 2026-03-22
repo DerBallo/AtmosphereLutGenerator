@@ -233,6 +233,222 @@ struct float3_t {
     }
 };
 
+struct alignas(16) float4_t {
+    float x, y, z, w;
+
+    constexpr float4_t operator+(float4_t other) const noexcept
+    {
+        return {
+            x + other.x,
+            y + other.y,
+            z + other.z,
+            w + other.w,
+        };
+    }
+
+    constexpr float4_t operator+(float other) const noexcept
+    {
+        return {
+            x + other,
+            y + other,
+            z + other,
+            w + other,
+        };
+    }
+
+    constexpr float4_t operator-(float4_t other) const noexcept
+    {
+        return {
+            x - other.x,
+            y - other.y,
+            z - other.z,
+            w - other.w,
+        };
+    }
+
+    constexpr float4_t operator-(float other) const noexcept
+    {
+        return {
+            x - other,
+            y - other,
+            z - other,
+            w - other,
+        };
+    }
+
+    constexpr float4_t operator*(float4_t other) const noexcept
+    {
+        return {
+            x * other.x,
+            y * other.y,
+            z * other.z,
+            w * other.w,
+        };
+    }
+
+    constexpr float4_t operator*(float other) const noexcept
+    {
+        return {
+            x * other,
+            y * other,
+            z * other,
+            w * other,
+        };
+    }
+
+    constexpr float4_t operator/(float4_t other) const noexcept
+    {
+        return {
+            x / other.x,
+            y / other.y,
+            z / other.z,
+            w / other.w,
+        };
+    }
+
+    constexpr float4_t operator/(float other) const noexcept
+    {
+        return {
+            x / other,
+            y / other,
+            z / other,
+            w / other,
+        };
+    }
+
+    constexpr void operator+=(float4_t other) noexcept
+    {
+        x += other.x;
+        y += other.y;
+        z += other.z;
+        w += other.w;
+    }
+
+    constexpr void operator+=(float other) noexcept
+    {
+        x += other;
+        y += other;
+        z += other;
+        w += other;
+    }
+
+    constexpr void operator-=(float4_t other) noexcept
+    {
+        x -= other.x;
+        y -= other.y;
+        z -= other.z;
+        w -= other.w;
+    }
+
+    constexpr void operator-=(float other) noexcept
+    {
+        x -= other;
+        y -= other;
+        z -= other;
+        w -= other;
+    }
+
+    constexpr void operator*=(float4_t other) noexcept
+    {
+        x *= other.x;
+        y *= other.y;
+        z *= other.z;
+        w *= other.w;
+    }
+
+    constexpr void operator*=(float other) noexcept
+    {
+        x *= other;
+        y *= other;
+        z *= other;
+        w *= other;
+    }
+
+    constexpr void operator/=(float4_t other) noexcept
+    {
+        x /= other.x;
+        y /= other.y;
+        z /= other.z;
+        w /= other.w;
+    }
+
+    constexpr void operator/=(float other) noexcept
+    {
+        x /= other;
+        y /= other;
+        z /= other;
+        w /= other;
+    }
+
+    constexpr float length_squared() const noexcept
+    {
+        return x * x + y * y + z * z + w * w;
+    }
+
+    constexpr float length() const noexcept
+    {
+        return std::sqrt(length_squared());
+    }
+
+    constexpr float4_t normalized() const noexcept
+    {
+        float invLen { 1.0_f / length() };
+        return { x * invLen, y * invLen, z * invLen, w * invLen };
+    }
+
+    constexpr void normalize() noexcept
+    {
+        float invLen { 1.0_f / length() };
+        x *= invLen;
+        y *= invLen;
+        z *= invLen;
+        w *= invLen;
+    }
+
+    constexpr float dot(const float4_t& other) const noexcept
+    {
+        return x * other.x + y * other.y + z * other.z + w * other.w;
+    }
+
+    constexpr float4_t abs() const noexcept
+    {
+        return { std::abs(x), std::abs(y), std::abs(z), std::abs(w) };
+    }
+
+    constexpr float4_t lerp(const float4_t& other, float t) const noexcept
+    {
+        return (*this) * (1.0_f - t) + other * t;
+    }
+
+    constexpr float4_t exp() const noexcept
+    {
+        return { std::exp(x), std::exp(y), std::exp(z), std::exp(w) };
+    }
+
+    constexpr float4_t() noexcept
+        : x(0.0_f), y(0.0_f), z(0.0_f), w(0.0_f)
+    {
+    }
+
+    constexpr float4_t(float x, float y, float z, float w) noexcept
+        : x(x), y(y), z(z), w(w)
+    {
+    }
+
+    constexpr float4_t(const float4_t& other) noexcept
+        : x(other.x), y(other.y), z(other.z), w(other.w)
+    {
+    }
+
+    constexpr void operator=(const float4_t& other) noexcept
+    {
+        x = other.x;
+        y = other.y;
+        z = other.z;
+        w = other.w;
+    }
+};
+
 inline float clamp(float x, float a, float b)
 {
     return std::max(a, std::min(b, x));
@@ -253,88 +469,85 @@ float densityM(float negativeHeight, float mieScaleHeight)
     return std::min(std::exp(negativeHeight / mieScaleHeight), 100.0_f);
 }
 
-float phaseRayleigh(float mu)
-{
-    return (3.0f / (16.0_f * pi_f)) * (1.0_f + mu * mu);
-}
-
-float phaseMie(float mu, float g)
-{
-    float g2 = g * g;
-    return (3.0_f / (8.0_f * pi_f)) * ((1.0_f - g2) * (1.0_f + mu * mu)) / ((2.0_f + g2) * std::pow(1.0_f + g2 - 2.0_f * g * mu, 1.5_f));
-}
-
 void GenerateAtmosphereLut(
-    float3_t* out,
+    float4_t* out,
     uint32_t dimR,
     uint32_t dimMu,
     uint32_t dimMuS,
     uint32_t viewSamples,
     uint32_t lightSamples,
-    uint32_t multiScatteringSteps,
     float earthRadius,
     float atmosphereRadius,
+    float intensity,
     float rayleighScaleHeight,
     float mieScaleHeight,
-    float3_t BetaR,
+    float mieAnisotropy,
+    float3_t BetaRScattering,
     float3_t BetaMScattering,
-    float3_t BetaMExtinction,
-    float mieG
+    float3_t BetaMAbsorption
 )
 {
-    float Rg { earthRadius };
-    float Rt { atmosphereRadius };
+    float atmosphereRadius2 = atmosphereRadius * atmosphereRadius;
+    float earthRadius2 = earthRadius * earthRadius;
 
     for (uint32_t ir {}; ir < dimR; ++ir) {
-        float vr { static_cast<float>(ir) / static_cast<float>(dimR - 1_u32) };
-        float r { Rg + (Rt - Rg) * (vr * vr) };
+        printf("Slice %d of %d\n", ir, dimR);
+
+        float vr { static_cast<float>(ir) / static_cast<float>(dimR - 1) };
+        float r { earthRadius + (atmosphereRadius - earthRadius) * (vr * vr) };
 
         for (uint32_t imu {}; imu < dimMu; ++imu) {
-            float vu { static_cast<float>(imu) / static_cast<float>(dimMu - 1_u32) };
-            float mu { signf(vu - 0.5_f) * std::pow(std::abs(2.0_f * vu - 1.0_f), 2.0_f) };
+            float vu { static_cast<float>(imu) / static_cast<float>(dimMu - 1) };
+            float mu { signf(vu - 0.5f) * std::pow(std::abs(2.0f * vu - 1.0f), 2.0f) };
 
-            float3_t viewDir { std::sqrt(1.0_f - mu * mu), mu, 0.0_f };
+            float3_t viewDir { std::sqrt(1.0f - mu * mu), mu, 0.0f };
             viewDir.normalize();
 
             for (uint32_t ims {}; ims < dimMuS; ++ims) {
-                float vs { (float)ims / (float)(dimMuS - 1) };
-                float muS { signf(vs - 0.5_f) * std::pow(std::abs(2.0_f * vs - 1.0_f), 2.0_f) };
+                float vs { static_cast<float>(ims) / static_cast<float>(dimMuS - 1) };
+                float muS { signf(vs - 0.5f) * std::pow(std::abs(2.0f * vs - 1.0f), 2.0f) };
 
-                float3_t sunDir { std::sqrt(1.0_f - muS * muS), muS, 0.0_f };
+                float3_t sunDir { std::sqrt(1.0f - muS * muS), muS, 0.0f };
                 sunDir.normalize();
 
-                float3_t origin { 0.0_f, r, 0.0_f };
+                float3_t origin { 0.0f, r, 0.0f };
 
-                float3_t sum {};
+                float B { origin.dot(viewDir) };
+                float C { origin.dot(origin) - atmosphereRadius2 };
+                float D { B * B - C };
+
+                if (D < 0.0f) {
+                    out[ir * dimMu * dimMuS + imu * dimMuS + ims] = {};
+                    continue;
+                }
+
+                float tMax { -B + std::sqrt(D) };
+
+                float3_t sumR {};
+                float3_t sumM {};
 
                 float opticalDepthR {};
                 float opticalDepthM {};
 
-                float tMax { 2.0_f * Rt };
-
                 for (uint32_t i {}; i < viewSamples; ++i) {
                     float u0 { static_cast<float>(i) / viewSamples };
-                    float u1 { static_cast<float>(i + 1_u32) / viewSamples };
-
-                    u0 = u0 * u0;
-                    u1 = u1 * u1;
+                    float u1 { static_cast<float>(i + 1) / viewSamples };
 
                     float t0 { u0 * tMax };
                     float t1 { u1 * tMax };
-                    float t { 0.5_f * (t0 + t1) };
+                    float t { 0.5f * (t0 + t1) };
                     float ds { t1 - t0 };
 
                     float3_t P { origin + viewDir * t };
                     float rP { P.length() };
 
-                    if (rP > Rt) {
+                    if (rP < earthRadius || rP > atmosphereRadius)
                         break;
-                    }
 
-                    float nHP { -(rP - earthRadius) };
+                    float h { rP - earthRadius };
 
-                    float dR { densityR(nHP, rayleighScaleHeight) };
-                    float dM { densityM(nHP, mieScaleHeight) };
+                    float dR { std::exp(-h / rayleighScaleHeight) };
+                    float dM { std::exp(-h / mieScaleHeight) };
 
                     float Hr { dR * ds };
                     float Hm { dM * ds };
@@ -345,52 +558,62 @@ void GenerateAtmosphereLut(
                     float opticalDepthLR {};
                     float opticalDepthLM {};
 
+                    float B2 { P.dot(sunDir) };
+                    float C2 { P.dot(P) - atmosphereRadius2 };
+                    float D2 { B2 * B2 - C2 };
+
+                    if (D2 < 0.0f)
+                        continue;
+
+                    float tMaxL { -B2 + std::sqrt(D2) };
+
+                    bool occluded { false };
+
                     for (uint32_t j {}; j < lightSamples; ++j) {
                         float v0 { static_cast<float>(j) / lightSamples };
-                        float v1 { static_cast<float>(j + 1_u32) / lightSamples };
+                        float v1 { static_cast<float>(j + 1) / lightSamples };
 
-                        v0 = v0 * v0;
-                        v1 = v1 * v1;
-
-                        float tL0 { v0 * tMax };
-                        float tL1 { v1 * tMax };
-                        float tL { 0.5_f * (tL0 + tL1) };
+                        float tL0 { v0 * tMaxL };
+                        float tL1 { v1 * tMaxL };
+                        float tL { 0.5f * (tL0 + tL1) };
                         float dsL { tL1 - tL0 };
 
                         float3_t Pl { P + sunDir * tL };
                         float rL { Pl.length() };
 
-                        if (rL > Rt) {
+                        if (rL < earthRadius) {
+                            occluded = true;
                             break;
                         }
 
-                        float nHL { -(rP - earthRadius) };
+                        if (rL > atmosphereRadius)
+                            break;
 
-                        opticalDepthLR += densityR(nHL, rayleighScaleHeight) * dsL;
-                        opticalDepthLM += densityM(nHL, mieScaleHeight) * dsL;
+                        float hL { rL - earthRadius };
+
+                        opticalDepthLR += std::exp(-hL / rayleighScaleHeight) * dsL;
+                        opticalDepthLM += std::exp(-hL / mieScaleHeight) * dsL;
                     }
 
-                    float3_t tau { BetaR * (opticalDepthR + opticalDepthLR) + BetaMExtinction * (opticalDepthM + opticalDepthLM) };
+                    if (occluded)
+                        continue;
 
-                    float3_t attenuation { float3_t { -tau.x, -tau.y, -tau.z }.exp() };
+                    float3_t tau { BetaRScattering * (opticalDepthR + opticalDepthLR) + (BetaMScattering + BetaMAbsorption) * (opticalDepthM + opticalDepthLM) };
 
-                    float muPhase { viewDir.dot(sunDir) };
+                    float3_t attenuation { (float3_t {} - tau).exp() };
 
-                    float phaseR { phaseRayleigh(muPhase) };
-                    float phaseM { phaseMie(muPhase, mieG) };
-
-                    float3_t scattering { BetaR * phaseR + BetaMScattering * phaseM };
-
-                    sum += scattering * attenuation * ds;
+                    sumR += attenuation * Hr;
+                    sumM += attenuation * Hm;
                 }
 
-                float3_t multi { sum };
-                for (uint32_t k {}; k < multiScatteringSteps; ++k) {
-                    multi *= 0.5_f;
-                    sum += multi;
-                }
+                float3_t inscattering { (sumR * BetaRScattering + sumM * BetaMScattering) * intensity };
 
-                out[ir * dimMu * dimMuS + imu * dimMuS + ims] = sum;
+                out[ir * dimMu * dimMuS + imu * dimMuS + ims] = {
+                    inscattering.x,
+                    inscattering.y,
+                    inscattering.z,
+                    0.0f
+                };
             }
         }
     }
@@ -398,11 +621,31 @@ void GenerateAtmosphereLut(
 
 int main()
 {
-    constexpr uint32_t lutR { 3_u32 };
-    constexpr uint32_t lutMu { 3_u32 };
-    constexpr uint32_t lutMuS { 3_u32 };
-    float3_t LUT[lutR * lutMu * lutMuS];
+    constexpr uint32_t lutR { 48_u32 };
+    constexpr uint32_t lutMu { 96_u32 };
+    constexpr uint32_t lutMuS { 32_u32 };
+    constexpr uint32_t lutLength { lutR * lutMu * lutMuS };
+    float4_t* LUT = new (std::nothrow) float4_t[lutLength];
 
+    GenerateAtmosphereLut(
+        LUT,
+        lutR,
+        lutMu,
+        lutMuS,
+        5000_u32,
+        100_u32,
+        6360e3_f,
+        6560e3_f,
+        20.0f,
+        7994.0_f,
+        1200.0_f,
+        0.88_f,
+        { 15e-6_f, 15e-6_f, 15e-6_f },
+        { 70e-6_f, 50e-6_f, 35e-6_f },
+        { 8e-6_f, 15e-6_f, 25e-6_f }
+    );
+
+    /*
     GenerateAtmosphereLut(
         LUT,
         lutR,
@@ -410,18 +653,19 @@ int main()
         lutMuS,
         100_u32,
         100_u32,
-        4_u32,
         6360e3_f,
         6560e3_f,
+        20.0f,
         7994.0_f,
         1200.0_f,
+        0.88_f,
         { 5.8e-6_f, 13e-6_f, 22.4e-6_f },
         { 20e-6_f, 20e-6_f, 20e-6_f },
-        { 22e-6_f, 22e-6_f, 22e-6_f },
-        0.76f
+        { 22e-6_f, 22e-6_f, 22e-6_f }
     );
+    */
 
-    std::ofstream("lut.bin", std::ios::binary).write(reinterpret_cast<char*>(LUT), lengthof(LUT) * sizeof(float3_t));
+    std::ofstream("lut.bin", std::ios::binary).write(reinterpret_cast<char*>(LUT), lutLength * sizeof(float4_t));
 
     return 0;
 }

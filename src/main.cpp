@@ -1,452 +1,200 @@
 #include <cstdio>
 
-#ifndef ve_std_stdint_h_included
-    #define ve_std_stdint_h_included
-    #include <stdint.h>
-#endif
-#ifndef ve_std_cmath_included
-    #define ve_std_cmath_included
-    #include <cmath>
-#endif
+#include "derballo.universal.hpp"
+#include "derballo.vk.buffer.hpp"
+#include "derballo.vk.command_buffer.hpp"
+#include "derballo.vk.command_pool.hpp"
+#include "derballo.vk.descriptor_pool.hpp"
+#include "derballo.vk.descriptor_set.hpp"
+#include "derballo.vk.descriptor_set_layout.hpp"
+#include "derballo.vk.device.hpp"
+#include "derballo.vk.fence.hpp"
+#include "derballo.vk.pipeline_layout.hpp"
+#include "derballo.vk.pnext_chain.hpp"
 
-#include <filesystem>
 #include <fstream>
 
-constexpr int8_t operator""_i8(unsigned long long value) noexcept { return static_cast<int8_t>(value); }
-constexpr uint8_t operator""_u8(unsigned long long value) noexcept { return static_cast<uint8_t>(value); }
-constexpr int16_t operator""_i16(unsigned long long value) noexcept { return static_cast<int16_t>(value); }
-constexpr uint16_t operator""_u16(unsigned long long value) noexcept { return static_cast<uint16_t>(value); }
-constexpr int32_t operator""_i32(unsigned long long value) noexcept { return static_cast<int32_t>(value); }
-constexpr uint32_t operator""_u32(unsigned long long value) noexcept { return static_cast<uint32_t>(value); }
-constexpr int64_t operator""_i64(unsigned long long value) noexcept { return static_cast<int64_t>(value); }
-constexpr uint64_t operator""_u64(unsigned long long value) noexcept { return static_cast<uint64_t>(value); }
-
-constexpr float operator""_f(long double value) noexcept { return static_cast<float>(value); }
-constexpr float operator""_f(unsigned long long value) noexcept { return static_cast<float>(value); }
-constexpr double operator""_d(long double value) noexcept { return static_cast<double>(value); }
-constexpr double operator""_d(unsigned long long value) noexcept { return static_cast<double>(value); }
-constexpr long double operator""_ld(long double value) noexcept { return static_cast<long double>(value); }
-constexpr long double operator""_ld(unsigned long long value) noexcept { return static_cast<long double>(value); }
-
-template <typename T, size_t N> constexpr size_t lengthof(const T (&)[N]) noexcept
-{
-    return N;
+ve::VulkanInstance ve::vulkanInstance {
+    makeInstanceCreateInfo(
+        {},
+        0_u32,
+        addressof(makeApplicationInfo(
+            {},
+            "AtmosphereLutGenerator",
+            VK_MAKE_VERSION(1, 0, 0),
+            "DerBalloEngine",
+            VK_MAKE_VERSION(1, 0, 0),
+            VK_API_VERSION_1_4
+        )),
+        {
+#ifndef NDEBUG
+            "VK_LAYER_KHRONOS_validation",
+#endif
+        },
+        {
+            "VK_EXT_debug_utils",
+        }
+    ),
 };
 
-inline constexpr float pi_f { 3.1415926535897932384626433832795_f };
-
-struct float3_t {
-    float x, y, z;
-
-    constexpr float3_t operator+(float3_t other) const noexcept
-    {
-        return {
-            x + other.x,
-            y + other.y,
-            z + other.z,
-        };
-    }
-
-    constexpr float3_t operator+(float other) const noexcept
-    {
-        return {
-            x + other,
-            y + other,
-            z + other,
-        };
-    }
-
-    constexpr float3_t operator-(float3_t other) const noexcept
-    {
-        return {
-            x - other.x,
-            y - other.y,
-            z - other.z,
-        };
-    }
-
-    constexpr float3_t operator-(float other) const noexcept
-    {
-        return {
-            x - other,
-            y - other,
-            z - other,
-        };
-    }
-
-    constexpr float3_t operator*(float3_t other) const noexcept
-    {
-        return {
-            x * other.x,
-            y * other.y,
-            z * other.z,
-        };
-    }
-
-    constexpr float3_t operator*(float other) const noexcept
-    {
-        return {
-            x * other,
-            y * other,
-            z * other,
-        };
-    }
-
-    constexpr float3_t operator/(float3_t other) const noexcept
-    {
-        return {
-            x / other.x,
-            y / other.y,
-            z / other.z,
-        };
-    }
-
-    constexpr float3_t operator/(float other) const noexcept
-    {
-        return {
-            x / other,
-            y / other,
-            z / other,
-        };
-    }
-
-    constexpr void operator+=(float3_t other) noexcept
-    {
-        x += other.x;
-        y += other.y;
-        z += other.z;
-    }
-
-    constexpr void operator+=(float other) noexcept
-    {
-        x += other;
-        y += other;
-        z += other;
-    }
-
-    constexpr void operator-=(float3_t other) noexcept
-    {
-        x -= other.x;
-        y -= other.y;
-        z -= other.z;
-    }
-
-    constexpr void operator-=(float other) noexcept
-    {
-        x -= other;
-        y -= other;
-        z -= other;
-    }
-
-    constexpr void operator*=(float3_t other) noexcept
-    {
-        x *= other.x;
-        y *= other.y;
-        z *= other.z;
-    }
-
-    constexpr void operator*=(float other) noexcept
-    {
-        x *= other;
-        y *= other;
-        z *= other;
-    }
-
-    constexpr void operator/=(float3_t other) noexcept
-    {
-        x /= other.x;
-        y /= other.y;
-        z /= other.z;
-    }
-
-    constexpr void operator/=(float other) noexcept
-    {
-        x /= other;
-        y /= other;
-        z /= other;
-    }
-
-    constexpr float length_squared() const noexcept
-    {
-        return x * x + y * y + z * z;
-    }
-
-    constexpr float length() const noexcept
-    {
-        return std::sqrt(length_squared());
-    }
-
-    constexpr float3_t normalized() const noexcept
-    {
-        float invLen { 1.0_f / length() };
-        return { x * invLen, y * invLen, z * invLen };
-    }
-
-    constexpr void normalize() noexcept
-    {
-        float invLen { 1.0_f / length() };
-        x *= invLen;
-        y *= invLen;
-        z *= invLen;
-    }
-
-    constexpr float dot(const float3_t& other) const noexcept
-    {
-        return x * other.x + y * other.y + z * other.z;
-    }
-
-    constexpr float3_t abs() const noexcept
-    {
-        return { std::abs(x), std::abs(y), std::abs(z) };
-    }
-
-    constexpr float3_t lerp(const float3_t& other, float t) const noexcept
-    {
-        return (*this) * (1.0_f - t) + other * t;
-    }
-
-    constexpr float3_t exp() const noexcept
-    {
-        return { std::exp(x), std::exp(y), std::exp(z) };
-    }
-
-    constexpr float3_t() noexcept
-        : x(0.0_f), y(0.0_f), z(0.0_f)
-    {
-    }
-
-    constexpr float3_t(float x, float y, float z) noexcept
-        : x(x), y(y), z(z)
-    {
-    }
-
-    constexpr float3_t(const float3_t& other) noexcept
-        : x(other.x), y(other.y), z(other.z)
-    {
-    }
-
-    constexpr void operator=(const float3_t& other) noexcept
-    {
-        x = other.x;
-        y = other.y;
-        z = other.z;
-    }
+ve::Gpu ve::gpu {
+    1_u32,
 };
 
-struct alignas(16) float4_t {
-    float x, y, z, w;
+ve::Device ve::device {
+    makeDeviceCreateInfo(
+        PnextChain {
+            VkPhysicalDeviceVulkan11Features {
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+            },
+            VkPhysicalDeviceVulkan12Features {
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+                {},
+                {},
+                {},
+                VK_TRUE,
+                VK_TRUE,
+                {},
+                {},
+                {},
+                VK_TRUE,
+                VK_TRUE,
+                VK_TRUE,
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                VK_TRUE,
+                {},
+                {},
+                {},
+                VK_TRUE,
+                VK_TRUE,
+                VK_TRUE,
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                VK_TRUE,
+                VK_TRUE,
+                VK_TRUE,
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+            },
+            VkPhysicalDeviceVulkan13Features {
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                VK_TRUE,
+                {},
+                {},
+                {},
+                {},
+                {},
+            },
+            VkPhysicalDeviceVulkan14Features {
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES,
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+            },
+        },
+        0_u32,
+        {
+            makeDeviceQueueCreateInfo(
+                {},
+                0_u32,
+                0_u32,
+                {
+                    1.0_f,
+                }
+            ),
+        },
+        {},
+        {
+            "VK_KHR_buffer_device_address",
+            "VK_KHR_deferred_host_operations",
+            "VK_KHR_shader_float_controls",
+            "VK_KHR_spirv_1_4",
+        }
+    ),
+};
 
-    constexpr float4_t operator+(float4_t other) const noexcept
-    {
-        return {
-            x + other.x,
-            y + other.y,
-            z + other.z,
-            w + other.w,
-        };
-    }
+ve::CommandPool ve::commandPool {
+    makeCommandPoolCreateInfo(
+        {},
+        VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+        0_u32
+    ),
+};
 
-    constexpr float4_t operator+(float other) const noexcept
-    {
-        return {
-            x + other,
-            y + other,
-            z + other,
-            w + other,
-        };
-    }
+ve::CommandBuffer ve::singleUseCommandBuffer {
+    makeCommandBufferAllocateInfo(
+        {},
+        commandPool.handle,
+        VK_COMMAND_BUFFER_LEVEL_PRIMARY
+    ),
+};
 
-    constexpr float4_t operator-(float4_t other) const noexcept
-    {
-        return {
-            x - other.x,
-            y - other.y,
-            z - other.z,
-            w - other.w,
-        };
-    }
-
-    constexpr float4_t operator-(float other) const noexcept
-    {
-        return {
-            x - other,
-            y - other,
-            z - other,
-            w - other,
-        };
-    }
-
-    constexpr float4_t operator*(float4_t other) const noexcept
-    {
-        return {
-            x * other.x,
-            y * other.y,
-            z * other.z,
-            w * other.w,
-        };
-    }
-
-    constexpr float4_t operator*(float other) const noexcept
-    {
-        return {
-            x * other,
-            y * other,
-            z * other,
-            w * other,
-        };
-    }
-
-    constexpr float4_t operator/(float4_t other) const noexcept
-    {
-        return {
-            x / other.x,
-            y / other.y,
-            z / other.z,
-            w / other.w,
-        };
-    }
-
-    constexpr float4_t operator/(float other) const noexcept
-    {
-        return {
-            x / other,
-            y / other,
-            z / other,
-            w / other,
-        };
-    }
-
-    constexpr void operator+=(float4_t other) noexcept
-    {
-        x += other.x;
-        y += other.y;
-        z += other.z;
-        w += other.w;
-    }
-
-    constexpr void operator+=(float other) noexcept
-    {
-        x += other;
-        y += other;
-        z += other;
-        w += other;
-    }
-
-    constexpr void operator-=(float4_t other) noexcept
-    {
-        x -= other.x;
-        y -= other.y;
-        z -= other.z;
-        w -= other.w;
-    }
-
-    constexpr void operator-=(float other) noexcept
-    {
-        x -= other;
-        y -= other;
-        z -= other;
-        w -= other;
-    }
-
-    constexpr void operator*=(float4_t other) noexcept
-    {
-        x *= other.x;
-        y *= other.y;
-        z *= other.z;
-        w *= other.w;
-    }
-
-    constexpr void operator*=(float other) noexcept
-    {
-        x *= other;
-        y *= other;
-        z *= other;
-        w *= other;
-    }
-
-    constexpr void operator/=(float4_t other) noexcept
-    {
-        x /= other.x;
-        y /= other.y;
-        z /= other.z;
-        w /= other.w;
-    }
-
-    constexpr void operator/=(float other) noexcept
-    {
-        x /= other;
-        y /= other;
-        z /= other;
-        w /= other;
-    }
-
-    constexpr float length_squared() const noexcept
-    {
-        return x * x + y * y + z * z + w * w;
-    }
-
-    constexpr float length() const noexcept
-    {
-        return std::sqrt(length_squared());
-    }
-
-    constexpr float4_t normalized() const noexcept
-    {
-        float invLen { 1.0_f / length() };
-        return { x * invLen, y * invLen, z * invLen, w * invLen };
-    }
-
-    constexpr void normalize() noexcept
-    {
-        float invLen { 1.0_f / length() };
-        x *= invLen;
-        y *= invLen;
-        z *= invLen;
-        w *= invLen;
-    }
-
-    constexpr float dot(const float4_t& other) const noexcept
-    {
-        return x * other.x + y * other.y + z * other.z + w * other.w;
-    }
-
-    constexpr float4_t abs() const noexcept
-    {
-        return { std::abs(x), std::abs(y), std::abs(z), std::abs(w) };
-    }
-
-    constexpr float4_t lerp(const float4_t& other, float t) const noexcept
-    {
-        return (*this) * (1.0_f - t) + other * t;
-    }
-
-    constexpr float4_t exp() const noexcept
-    {
-        return { std::exp(x), std::exp(y), std::exp(z), std::exp(w) };
-    }
-
-    constexpr float4_t() noexcept
-        : x(0.0_f), y(0.0_f), z(0.0_f), w(0.0_f)
-    {
-    }
-
-    constexpr float4_t(float x, float y, float z, float w) noexcept
-        : x(x), y(y), z(z), w(w)
-    {
-    }
-
-    constexpr float4_t(const float4_t& other) noexcept
-        : x(other.x), y(other.y), z(other.z), w(other.w)
-    {
-    }
-
-    constexpr void operator=(const float4_t& other) noexcept
-    {
-        x = other.x;
-        y = other.y;
-        z = other.z;
-        w = other.w;
-    }
+ve::Fence ve::singleUseFence {
+    ve::defaultFenceCreateInfo,
 };
 
 inline float clamp(float x, float a, float b)
@@ -625,6 +373,108 @@ int main()
     constexpr uint32_t lutMu { 96_u32 };
     constexpr uint32_t lutMuS { 32_u32 };
     constexpr uint32_t lutLength { lutR * lutMu * lutMuS };
+    constexpr uint64_t lutSize { sizeof(float4_t) * lutLength };
+
+    ve::Buffer<ve::BufferType::DeviceSizeless> lutDeviceBuffer {
+        lutSize,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+    };
+
+    ve::Buffer<ve::BufferType::HostSizeless> lutStagingBuffer {
+        lutSize,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+    };
+
+    ve::DescriptorSetLayout descriptorSetLayout {
+        ve::makeDescriptorSetLayoutCreateInfo(
+            {},
+            {},
+            {
+                {
+                    0_u32,
+                    VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                    1_u32,
+                    VK_SHADER_STAGE_COMPUTE_BIT,
+                    {},
+                },
+            }
+        ),
+    };
+
+    ve::PipelineLayout pipelineLayout {
+        ve::makePipelineLayoutCreateInfo(
+            {},
+            {},
+            {
+                descriptorSetLayout.handle,
+            },
+            {}
+        ),
+    };
+
+    ve::DescriptorPool descriptorPool {
+        ve::makeDescriptorPoolCreateInfo(
+            {},
+            {},
+            1_u32,
+            {
+                {
+                    VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                    1_u32,
+                },
+            }
+        ),
+    };
+
+    ve::DescriptorSet descriptorSet {
+        ve::makeDescriptorSetAllocateInfo(
+            {},
+
+            descriptorPool.handle,
+            {
+                descriptorSetLayout.handle,
+            }
+        ),
+    };
+
+    VkDescriptorBufferInfo lutDeviceBufferInfo {
+        lutDeviceBuffer.handle,
+        0_u64,
+        VK_WHOLE_SIZE,
+    };
+
+    VkWriteDescriptorSet descriptorWrites[] {
+        {
+            VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            {},
+            descriptorSet.handle,
+            0_u32,
+            0_u32,
+            1_u32,
+            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            {},
+            addressof(lutDeviceBufferInfo),
+            {},
+        },
+    };
+
+    vkUpdateDescriptorSets(
+        ve::device.handle,
+        lengthof(descriptorWrites),
+        descriptorWrites,
+        {},
+        {}
+    );
+
+    // load shader module
+
+    // create compute pipeline
+
+    // record commands
+
+    // transfer data back
+
+    /*
     float4_t* LUT = new (std::nothrow) float4_t[lutLength];
 
     GenerateAtmosphereLut(
@@ -632,8 +482,8 @@ int main()
         lutR,
         lutMu,
         lutMuS,
-        5000_u32,
         100_u32,
+        10_u32,
         6360e3_f,
         6560e3_f,
         20.0f,
@@ -645,7 +495,6 @@ int main()
         { 8e-6_f, 15e-6_f, 25e-6_f }
     );
 
-    /*
     GenerateAtmosphereLut(
         LUT,
         lutR,
@@ -663,9 +512,9 @@ int main()
         { 20e-6_f, 20e-6_f, 20e-6_f },
         { 22e-6_f, 22e-6_f, 22e-6_f }
     );
-    */
 
     std::ofstream("lut.bin", std::ios::binary).write(reinterpret_cast<char*>(LUT), lutLength * sizeof(float4_t));
+    */
 
     return 0;
 }

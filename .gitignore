@@ -1,6 +1,6 @@
 # Build Dirrectory
 /build/*
-.cache
+/.cache
 
 # Prerequisites
 *.d

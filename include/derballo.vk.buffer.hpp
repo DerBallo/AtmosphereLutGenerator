@@ -52,12 +52,6 @@ namespace ve {
         VkDeviceMemory memory;
 
         void transferImmediate(VkBuffer dstBuffer, ArrayView<VkBufferCopy> copyRegions)
-            requires(
-                (bufferType == BufferType::Host
-                 || bufferType == BufferType::HostSizeless
-                 || bufferType == BufferType::HostUnmapped
-                 || bufferType == BufferType::HostUnmappedSizeless)
-            )
         {
             ve_vkcheck(vkBeginCommandBuffer(
                 singleUseCommandBuffer.handle,
@@ -111,7 +105,7 @@ namespace ve {
 
             ve_vkcheck(vkResetCommandBuffer(
                 singleUseCommandBuffer.handle,
-                0_u32
+                {}
             ));
         }
 

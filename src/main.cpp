@@ -4,6 +4,7 @@
 #include "derballo.vk.buffer.hpp"
 #include "derballo.vk.command_buffer.hpp"
 #include "derballo.vk.command_pool.hpp"
+#include "derballo.vk.compute_pipeline.hpp"
 #include "derballo.vk.descriptor_pool.hpp"
 #include "derballo.vk.descriptor_set.hpp"
 #include "derballo.vk.descriptor_set_layout.hpp"
@@ -11,6 +12,7 @@
 #include "derballo.vk.fence.hpp"
 #include "derballo.vk.pipeline_layout.hpp"
 #include "derballo.vk.pnext_chain.hpp"
+#include "derballo.vk.shader_module.hpp"
 
 #include <fstream>
 
@@ -466,17 +468,171 @@ int main()
         {}
     );
 
-    // load shader module
+    int result { std::system("slangc shader.slang -target spirv -profile spirv_1_5 -O3 -fvk-use-entrypoint-name -entry compute -o shader.spv") };
 
-    // create compute pipeline
+    printf("%d\n", result);
 
-    // record commands
+    std::ifstream file("shader.spv", std::ios::binary | std::ios::ate);
+    if (!file) {
+        return -1;
+    }
 
-    // transfer data back
+    std::streamsize size = file.tellg();
+    if (size < 1) {
+        return -1;
+    }
+
+    file.seekg(0, std::ios::beg);
+
+    alignas(16) char shaderCode[size];
+
+    if (!file.read(shaderCode, size)) {
+        return -1;
+    }
+
+    ve::ShaderModule shaderModule {
+        ve::makeShaderModuleCreateInfo(
+            {},
+            {},
+            {
+                static_cast<size_t>(size),
+                shaderCode,
+            }
+        ),
+    };
+
+    ve::ComputePipeline computePipeline {
+        ve::makeComputePipelineCreateInfo(
+            {},
+            {},
+            {
+                VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                {},
+                {},
+                VK_SHADER_STAGE_COMPUTE_BIT,
+                shaderModule.handle,
+                "compute",
+                {},
+            },
+            pipelineLayout.handle,
+            {},
+            {}
+        ),
+    };
+
+    vkBeginCommandBuffer(
+        ve::singleUseCommandBuffer.handle,
+        addressof(ve::commandBufferSingleUseBeginInfo)
+    );
+
+    vkCmdBindPipeline(
+        ve::singleUseCommandBuffer.handle,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        computePipeline.handle
+    );
+
+    vkCmdBindDescriptorSets(
+        ve::singleUseCommandBuffer.handle,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        pipelineLayout.handle,
+        0,
+        1,
+        addressof(descriptorSet.handle),
+        {},
+        {}
+    );
+
+    vkCmdDispatch(
+        ve::singleUseCommandBuffer.handle,
+        6, // 48 / 8
+        12, // 96 / 8
+        8 // 32 / 4
+    );
+
+    VkBufferMemoryBarrier barrier {
+        VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        {},
+        VK_ACCESS_SHADER_WRITE_BIT,
+        VK_ACCESS_TRANSFER_READ_BIT,
+        VK_QUEUE_FAMILY_IGNORED,
+        VK_QUEUE_FAMILY_IGNORED,
+        lutDeviceBuffer.handle,
+        0,
+        VK_WHOLE_SIZE
+    };
+
+    vkCmdPipelineBarrier(
+        ve::singleUseCommandBuffer.handle,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,
+        {},
+        {},
+        1_u32,
+        addressof(barrier),
+        {},
+        {}
+    );
+
+    VkBufferCopy copyRegion {
+        {},
+        {},
+        lutSize,
+    };
+
+    vkCmdCopyBuffer(
+        ve::singleUseCommandBuffer.handle,
+        lutDeviceBuffer.handle,
+        lutStagingBuffer.handle,
+        1_u32,
+        addressof(copyRegion)
+    );
+
+    vkEndCommandBuffer(
+        ve::singleUseCommandBuffer.handle
+    );
+
+    VkSubmitInfo submitInfo {
+        VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        {},
+        {},
+        {},
+        {},
+        1_u32,
+        addressof(ve::singleUseCommandBuffer.handle),
+        {},
+        {},
+    };
+
+    ve_vkcheck(vkQueueSubmit(
+        ve::device.queue,
+        1_u32,
+        addressof(submitInfo),
+        ve::singleUseFence.handle
+    ));
+
+    ve_vkcheck(vkWaitForFences(
+        ve::device.handle,
+        1_u32,
+        addressof(ve::singleUseFence.handle),
+        true,
+        UINT64_MAX
+    ));
+
+    ve_vkcheck(vkResetFences(
+        ve::device.handle,
+        1_u32,
+        addressof(ve::singleUseFence.handle)
+    ));
+
+    ve_vkcheck(vkResetCommandBuffer(
+        ve::singleUseCommandBuffer.handle,
+        {}
+    ));
+
+    std::ofstream("lut.bin", std::ios::binary).write(reinterpret_cast<char*>(lutStagingBuffer.data), lutSize);
 
     /*
-    float4_t* LUT = new (std::nothrow) float4_t[lutLength];
-
     GenerateAtmosphereLut(
         LUT,
         lutR,
@@ -512,8 +668,6 @@ int main()
         { 20e-6_f, 20e-6_f, 20e-6_f },
         { 22e-6_f, 22e-6_f, 22e-6_f }
     );
-
-    std::ofstream("lut.bin", std::ios::binary).write(reinterpret_cast<char*>(LUT), lutLength * sizeof(float4_t));
     */
 
     return 0;

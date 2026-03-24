@@ -10,6 +10,8 @@
 #include "derballo.vk.descriptor_set_layout.hpp"
 #include "derballo.vk.device.hpp"
 #include "derballo.vk.fence.hpp"
+#include "derballo.vk.image.hpp"
+#include "derballo.vk.image_view.hpp"
 #include "derballo.vk.pipeline_layout.hpp"
 #include "derballo.vk.pnext_chain.hpp"
 #include "derballo.vk.shader_module.hpp"
@@ -199,191 +201,67 @@ ve::Fence ve::singleUseFence {
     ve::defaultFenceCreateInfo,
 };
 
-inline float clamp(float x, float a, float b)
-{
-    return std::max(a, std::min(b, x));
-}
-
-inline float signf(float x)
-{
-    return x >= 0.0_f ? 1.0_f : -1.0_f;
-}
-
-float densityR(float negativeHeight, float rayleighScaleHeight)
-{
-    return std::min(std::exp(negativeHeight / rayleighScaleHeight), 100.0_f);
-}
-
-float densityM(float negativeHeight, float mieScaleHeight)
-{
-    return std::min(std::exp(negativeHeight / mieScaleHeight), 100.0_f);
-}
-
-void GenerateAtmosphereLut(
-    float4_t* out,
-    uint32_t dimR,
-    uint32_t dimMu,
-    uint32_t dimMuS,
-    uint32_t viewSamples,
-    uint32_t lightSamples,
-    float earthRadius,
-    float atmosphereRadius,
-    float intensity,
-    float rayleighScaleHeight,
-    float mieScaleHeight,
-    float mieAnisotropy,
-    float3_t BetaRScattering,
-    float3_t BetaMScattering,
-    float3_t BetaMAbsorption
-)
-{
-    float atmosphereRadius2 = atmosphereRadius * atmosphereRadius;
-    float earthRadius2 = earthRadius * earthRadius;
-
-    for (uint32_t ir {}; ir < dimR; ++ir) {
-        printf("Slice %d of %d\n", ir, dimR);
-
-        float vr { static_cast<float>(ir) / static_cast<float>(dimR - 1) };
-        float r { earthRadius + (atmosphereRadius - earthRadius) * (vr * vr) };
-
-        for (uint32_t imu {}; imu < dimMu; ++imu) {
-            float vu { static_cast<float>(imu) / static_cast<float>(dimMu - 1) };
-            float mu { signf(vu - 0.5f) * std::pow(std::abs(2.0f * vu - 1.0f), 2.0f) };
-
-            float3_t viewDir { std::sqrt(1.0f - mu * mu), mu, 0.0f };
-            viewDir.normalize();
-
-            for (uint32_t ims {}; ims < dimMuS; ++ims) {
-                float vs { static_cast<float>(ims) / static_cast<float>(dimMuS - 1) };
-                float muS { signf(vs - 0.5f) * std::pow(std::abs(2.0f * vs - 1.0f), 2.0f) };
-
-                float3_t sunDir { std::sqrt(1.0f - muS * muS), muS, 0.0f };
-                sunDir.normalize();
-
-                float3_t origin { 0.0f, r, 0.0f };
-
-                float B { origin.dot(viewDir) };
-                float C { origin.dot(origin) - atmosphereRadius2 };
-                float D { B * B - C };
-
-                if (D < 0.0f) {
-                    out[ir * dimMu * dimMuS + imu * dimMuS + ims] = {};
-                    continue;
-                }
-
-                float tMax { -B + std::sqrt(D) };
-
-                float3_t sumR {};
-                float3_t sumM {};
-
-                float opticalDepthR {};
-                float opticalDepthM {};
-
-                for (uint32_t i {}; i < viewSamples; ++i) {
-                    float u0 { static_cast<float>(i) / viewSamples };
-                    float u1 { static_cast<float>(i + 1) / viewSamples };
-
-                    float t0 { u0 * tMax };
-                    float t1 { u1 * tMax };
-                    float t { 0.5f * (t0 + t1) };
-                    float ds { t1 - t0 };
-
-                    float3_t P { origin + viewDir * t };
-                    float rP { P.length() };
-
-                    if (rP < earthRadius || rP > atmosphereRadius)
-                        break;
-
-                    float h { rP - earthRadius };
-
-                    float dR { std::exp(-h / rayleighScaleHeight) };
-                    float dM { std::exp(-h / mieScaleHeight) };
-
-                    float Hr { dR * ds };
-                    float Hm { dM * ds };
-
-                    opticalDepthR += Hr;
-                    opticalDepthM += Hm;
-
-                    float opticalDepthLR {};
-                    float opticalDepthLM {};
-
-                    float B2 { P.dot(sunDir) };
-                    float C2 { P.dot(P) - atmosphereRadius2 };
-                    float D2 { B2 * B2 - C2 };
-
-                    if (D2 < 0.0f)
-                        continue;
-
-                    float tMaxL { -B2 + std::sqrt(D2) };
-
-                    bool occluded { false };
-
-                    for (uint32_t j {}; j < lightSamples; ++j) {
-                        float v0 { static_cast<float>(j) / lightSamples };
-                        float v1 { static_cast<float>(j + 1) / lightSamples };
-
-                        float tL0 { v0 * tMaxL };
-                        float tL1 { v1 * tMaxL };
-                        float tL { 0.5f * (tL0 + tL1) };
-                        float dsL { tL1 - tL0 };
-
-                        float3_t Pl { P + sunDir * tL };
-                        float rL { Pl.length() };
-
-                        if (rL < earthRadius) {
-                            occluded = true;
-                            break;
-                        }
-
-                        if (rL > atmosphereRadius)
-                            break;
-
-                        float hL { rL - earthRadius };
-
-                        opticalDepthLR += std::exp(-hL / rayleighScaleHeight) * dsL;
-                        opticalDepthLM += std::exp(-hL / mieScaleHeight) * dsL;
-                    }
-
-                    if (occluded)
-                        continue;
-
-                    float3_t tau { BetaRScattering * (opticalDepthR + opticalDepthLR) + (BetaMScattering + BetaMAbsorption) * (opticalDepthM + opticalDepthLM) };
-
-                    float3_t attenuation { (float3_t {} - tau).exp() };
-
-                    sumR += attenuation * Hr;
-                    sumM += attenuation * Hm;
-                }
-
-                float3_t inscattering { (sumR * BetaRScattering + sumM * BetaMScattering) * intensity };
-
-                out[ir * dimMu * dimMuS + imu * dimMuS + ims] = {
-                    inscattering.x,
-                    inscattering.y,
-                    inscattering.z,
-                    0.0f
-                };
-            }
-        }
-    }
-}
-
 int main()
 {
-    constexpr uint32_t lutR { 48_u32 };
-    constexpr uint32_t lutMu { 96_u32 };
-    constexpr uint32_t lutMuS { 32_u32 };
-    constexpr uint32_t lutLength { lutR * lutMu * lutMuS };
-    constexpr uint64_t lutSize { sizeof(float4_t) * lutLength };
+    constexpr uint32_t lutRayPoints { 128_u32 };
+    constexpr uint32_t lutSunPoints { 96_u32 };
+    constexpr uint32_t lutHeightPoints { 48_u32 };
 
-    ve::Buffer<ve::BufferType::DeviceSizeless> lutDeviceBuffer {
-        lutSize,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+    static_assert(((lutRayPoints & 3) == 0) && ((lutSunPoints & 3) == 0) && ((lutHeightPoints & 3) == 0), "Dimensions must be divisible by 4!");
+
+    uint64_t lutDataSize { 4_u64 * lutRayPoints * lutSunPoints * lutHeightPoints };
+    constexpr VkFormat imageFormat { VK_FORMAT_B10G11R11_UFLOAT_PACK32 };
+
+    ve::Image lutImage {
+        ve::makeImageCreateInfo(
+            {},
+            {},
+            VK_IMAGE_TYPE_3D,
+            imageFormat,
+            {
+                lutRayPoints,
+                lutSunPoints,
+                lutHeightPoints,
+            },
+            1,
+            1,
+            VK_SAMPLE_COUNT_1_BIT,
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+                | VK_IMAGE_USAGE_STORAGE_BIT,
+            VK_SHARING_MODE_EXCLUSIVE,
+            {},
+            VK_IMAGE_LAYOUT_UNDEFINED
+        ),
+    };
+
+    constexpr VkImageSubresourceRange lutSubresourceRange {
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        0u,
+        1u,
+        0u,
+        1u,
+    };
+
+    ve::ImageView lutImageView {
+        ve::makeImageViewCreateInfo(
+            {},
+            {},
+            lutImage.handle,
+            VK_IMAGE_VIEW_TYPE_3D,
+            imageFormat,
+            {
+                VK_COMPONENT_SWIZZLE_R,
+                VK_COMPONENT_SWIZZLE_G,
+                VK_COMPONENT_SWIZZLE_B,
+                VK_COMPONENT_SWIZZLE_A,
+            },
+            lutSubresourceRange
+        ),
     };
 
     ve::Buffer<ve::BufferType::HostSizeless> lutStagingBuffer {
-        lutSize,
+        lutDataSize,
         VK_BUFFER_USAGE_TRANSFER_DST_BIT,
     };
 
@@ -394,7 +272,7 @@ int main()
             {
                 {
                     0_u32,
-                    VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                    VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                     1_u32,
                     VK_SHADER_STAGE_COMPUTE_BIT,
                     {},
@@ -421,7 +299,7 @@ int main()
             1_u32,
             {
                 {
-                    VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                    VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                     1_u32,
                 },
             }
@@ -431,7 +309,6 @@ int main()
     ve::DescriptorSet descriptorSet {
         ve::makeDescriptorSetAllocateInfo(
             {},
-
             descriptorPool.handle,
             {
                 descriptorSetLayout.handle,
@@ -439,10 +316,10 @@ int main()
         ),
     };
 
-    VkDescriptorBufferInfo lutDeviceBufferInfo {
-        lutDeviceBuffer.handle,
-        0_u64,
-        VK_WHOLE_SIZE,
+    VkDescriptorImageInfo lutImageInfo {
+        {},
+        lutImageView.handle,
+        VK_IMAGE_LAYOUT_GENERAL,
     };
 
     VkWriteDescriptorSet descriptorWrites[] {
@@ -453,9 +330,9 @@ int main()
             0_u32,
             0_u32,
             1_u32,
-            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            addressof(lutImageInfo),
             {},
-            addressof(lutDeviceBufferInfo),
             {},
         },
     };
@@ -468,9 +345,7 @@ int main()
         {}
     );
 
-    int result { std::system("slangc shader.slang -target spirv -profile spirv_1_5 -O3 -fvk-use-entrypoint-name -entry compute -o shader.spv") };
-
-    printf("%d\n", result);
+    std::system("slangc shader.slang -target spirv -profile spirv_1_5 -O3 -fvk-use-entrypoint-name -entry compute -o shader.spv");
 
     std::ifstream file("shader.spv", std::ios::binary | std::ios::ate);
     if (!file) {
@@ -542,47 +417,87 @@ int main()
         {}
     );
 
-    vkCmdDispatch(
+    VkImageMemoryBarrier lutMemoryBarrier {
+        VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        {},
+        {},
+        VK_ACCESS_SHADER_WRITE_BIT,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_GENERAL,
+        VK_QUEUE_FAMILY_IGNORED,
+        VK_QUEUE_FAMILY_IGNORED,
+        lutImage.handle,
+        lutSubresourceRange,
+    };
+
+    vkCmdPipelineBarrier(
         ve::singleUseCommandBuffer.handle,
-        6, // 48 / 8
-        12, // 96 / 8
-        8 // 32 / 4
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        {},
+        {},
+        {},
+        {},
+        {},
+        1_u32,
+        addressof(lutMemoryBarrier)
     );
 
-    VkBufferMemoryBarrier barrier {
-        VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+    vkCmdDispatch(
+        ve::singleUseCommandBuffer.handle,
+        lutRayPoints >> 2_u32,
+        lutSunPoints >> 2_u32,
+        lutHeightPoints >> 2_u32
+    );
+
+    lutMemoryBarrier = {
+        VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         {},
         VK_ACCESS_SHADER_WRITE_BIT,
         VK_ACCESS_TRANSFER_READ_BIT,
+        VK_IMAGE_LAYOUT_GENERAL,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         VK_QUEUE_FAMILY_IGNORED,
         VK_QUEUE_FAMILY_IGNORED,
-        lutDeviceBuffer.handle,
-        0,
-        VK_WHOLE_SIZE
+        lutImage.handle,
+        lutSubresourceRange,
     };
 
     vkCmdPipelineBarrier(
         ve::singleUseCommandBuffer.handle,
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
         VK_PIPELINE_STAGE_TRANSFER_BIT,
-        0,
+        {},
+        {},
+        {},
         {},
         {},
         1_u32,
-        addressof(barrier),
-        {},
-        {}
+        addressof(lutMemoryBarrier)
     );
 
-    VkBufferCopy copyRegion {
+    VkBufferImageCopy copyRegion {
         {},
         {},
-        lutSize,
+        {},
+        {
+            VK_IMAGE_ASPECT_COLOR_BIT,
+            {},
+            {},
+            1_u32,
+        },
+        {},
+        {
+            lutRayPoints,
+            lutSunPoints,
+            lutHeightPoints,
+        },
     };
 
-    vkCmdCopyBuffer(
+    vkCmdCopyImageToBuffer(
         ve::singleUseCommandBuffer.handle,
-        lutDeviceBuffer.handle,
+        lutImage.handle,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         lutStagingBuffer.handle,
         1_u32,
         addressof(copyRegion)
@@ -630,7 +545,7 @@ int main()
         {}
     ));
 
-    std::ofstream("lut.bin", std::ios::binary).write(reinterpret_cast<char*>(lutStagingBuffer.data), lutSize);
+    std::ofstream("atmosphere_lut.bin", std::ios::binary).write(reinterpret_cast<char*>(lutStagingBuffer.data), lutDataSize);
 
     /*
     GenerateAtmosphereLut(

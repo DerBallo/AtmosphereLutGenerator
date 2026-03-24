@@ -20,7 +20,7 @@ clean_core_files() {
 }
 
 build_debug() {
-    clean_core_files
+    #clean_core_files
 
     cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS_DEBUG="-g3 -O0 -fno-omit-frame-pointer -Wall -Wextra -Wpedantic" -DCMAKE_EXE_LINKER_FLAGS_DEBUG="-rdynamic" -S "$SCRIPT_DIR" -B "$BUILD_DIR"
 
@@ -36,7 +36,7 @@ build_debug() {
 }
 
 build_release() {
-    clean_core_files
+    #clean_core_files
 
     cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS_RELEASE="-O3 -march=native -mtune=native -DNDEBUG -flto -fno-omit-frame-pointer" -DCMAKE_EXE_LINKER_FLAGS_RELEASE="-s -flto" -S "$SCRIPT_DIR" -B "$BUILD_DIR"
 

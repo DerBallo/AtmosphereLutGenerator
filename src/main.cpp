@@ -201,15 +201,26 @@ ve::Fence ve::singleUseFence {
     ve::defaultFenceCreateInfo,
 };
 
-int main()
+int main(int argc, char* argv[])
 {
-    constexpr uint32_t lutRayPoints { 128_u32 };
-    constexpr uint32_t lutSunPoints { 96_u32 };
-    constexpr uint32_t lutHeightPoints { 48_u32 };
+    constexpr uint32_t RAY_POINTS { 128 };
+    constexpr uint32_t SUN_POINTS { 96 };
+    constexpr uint32_t HEIGHT_POINTS { 48 };
+    constexpr uint32_t VIEW_SAMPLES { 50000_u32 };
+    constexpr uint32_t LIGHT_SAMPLES { 10000_u32 };
+    constexpr float ATMOSPHERE_START { 6345e3f };
+    constexpr float SEA_LEVEL { 6360e3f };
+    constexpr float ATMOSPHERE_END { 6460e3f };
+    constexpr float RAYLEIGH_SCALE_HEIGHT { 7994.0f };
+    constexpr float MIE_SCALE_HEIGHT { 5000.0f };
+    constexpr float SUN_INTENSITY { 20.0f };
+    constexpr float3_t RAYLEIGH_SCATTERING { 15e-6f, 15e-6f, 15e-6f };
+    constexpr float3_t MIE_SCATTERING { 70e-6f, 50e-6f, 35e-6f };
+    constexpr float3_t MIE_ABSORPTION { 5.8e-6f, 13e-6f, 22.4e-6f };
 
-    static_assert(((lutRayPoints & 3) == 0) && ((lutSunPoints & 3) == 0) && ((lutHeightPoints & 3) == 0), "Dimensions must be divisible by 4!");
+    static_assert(((RAY_POINTS & 3) == 0) && ((SUN_POINTS & 3) == 0) && ((HEIGHT_POINTS & 3) == 0), "Dimensions must be divisible by 4!");
 
-    uint64_t lutDataSize { 4_u64 * lutRayPoints * lutSunPoints * lutHeightPoints };
+    constexpr uint64_t lutDataSize { 4_u64 * RAY_POINTS * SUN_POINTS * HEIGHT_POINTS };
     constexpr VkFormat imageFormat { VK_FORMAT_B10G11R11_UFLOAT_PACK32 };
 
     ve::Image lutImage {
@@ -219,9 +230,9 @@ int main()
             VK_IMAGE_TYPE_3D,
             imageFormat,
             {
-                lutRayPoints,
-                lutSunPoints,
-                lutHeightPoints,
+                RAY_POINTS,
+                SUN_POINTS,
+                HEIGHT_POINTS,
             },
             1,
             1,
@@ -345,7 +356,51 @@ int main()
         {}
     );
 
-    std::system("slangc shader.slang -target spirv -profile spirv_1_5 -O3 -fvk-use-entrypoint-name -entry compute -o shader.spv");
+    std::string command {
+        std::format(
+            std::locale::classic(),
+            "slangc shader.slang\
+            -DRAY_POINTS={}\
+            -DSUN_POINTS={}\
+            -DHEIGHT_POINTS={}\
+            -DVIEW_SAMPLES={}\
+            -DLIGHT_SAMPLES={}\
+            -DATMOSPHERE_START={}\
+            -DSEA_LEVEL={}\
+            -DATMOSPHERE_END={}\
+            -DRAYLEIGH_SCALE_HEIGHT={}\
+            -DMIE_SCALE_HEIGHT={}\
+            -DSUN_INTENSITY={}\
+            -DRAYLEIGH_SCATTERING=\"float3({:.32g},{:.32g},{:.32g})\"\
+            -DMIE_SCATTERING=\"float3({:.32g},{:.32g},{:.32g})\"\
+            -DMIE_ABSORPTION=\"float3({:.32g},{:.32g},{:.32g})\"\
+            -target spirv -profile spirv_1_5 -O3 -fvk-use-entrypoint-name\
+            -entry compute\
+            -o shader.spv",
+            RAY_POINTS,
+            SUN_POINTS,
+            HEIGHT_POINTS,
+            VIEW_SAMPLES,
+            LIGHT_SAMPLES,
+            ATMOSPHERE_START,
+            SEA_LEVEL,
+            ATMOSPHERE_END,
+            RAYLEIGH_SCALE_HEIGHT,
+            MIE_SCALE_HEIGHT,
+            SUN_INTENSITY,
+            RAYLEIGH_SCATTERING.x,
+            RAYLEIGH_SCATTERING.y,
+            RAYLEIGH_SCATTERING.z,
+            MIE_SCATTERING.x,
+            MIE_SCATTERING.y,
+            MIE_SCATTERING.z,
+            MIE_ABSORPTION.x,
+            MIE_ABSORPTION.y,
+            MIE_ABSORPTION.z
+        ),
+    };
+
+    std::system(command.c_str());
 
     std::ifstream file("shader.spv", std::ios::binary | std::ios::ate);
     if (!file) {
@@ -445,9 +500,9 @@ int main()
 
     vkCmdDispatch(
         ve::singleUseCommandBuffer.handle,
-        lutRayPoints >> 2_u32,
-        lutSunPoints >> 2_u32,
-        lutHeightPoints >> 2_u32
+        RAY_POINTS >> 2_u32,
+        SUN_POINTS >> 2_u32,
+        HEIGHT_POINTS >> 2_u32
     );
 
     lutMemoryBarrier = {
@@ -488,9 +543,9 @@ int main()
         },
         {},
         {
-            lutRayPoints,
-            lutSunPoints,
-            lutHeightPoints,
+            RAY_POINTS,
+            SUN_POINTS,
+            HEIGHT_POINTS,
         },
     };
 
@@ -545,45 +600,7 @@ int main()
         {}
     ));
 
-    std::ofstream("atmosphere_lut.bin", std::ios::binary).write(reinterpret_cast<char*>(lutStagingBuffer.data), lutDataSize);
-
-    /*
-    GenerateAtmosphereLut(
-        LUT,
-        lutR,
-        lutMu,
-        lutMuS,
-        100_u32,
-        10_u32,
-        6360e3_f,
-        6560e3_f,
-        20.0f,
-        7994.0_f,
-        1200.0_f,
-        0.88_f,
-        { 15e-6_f, 15e-6_f, 15e-6_f },
-        { 70e-6_f, 50e-6_f, 35e-6_f },
-        { 8e-6_f, 15e-6_f, 25e-6_f }
-    );
-
-    GenerateAtmosphereLut(
-        LUT,
-        lutR,
-        lutMu,
-        lutMuS,
-        100_u32,
-        100_u32,
-        6360e3_f,
-        6560e3_f,
-        20.0f,
-        7994.0_f,
-        1200.0_f,
-        0.88_f,
-        { 5.8e-6_f, 13e-6_f, 22.4e-6_f },
-        { 20e-6_f, 20e-6_f, 20e-6_f },
-        { 22e-6_f, 22e-6_f, 22e-6_f }
-    );
-    */
+    std::ofstream("lut.atmosphere", std::ios::binary).write(reinterpret_cast<char*>(lutStagingBuffer.data), lutDataSize);
 
     return 0;
 }

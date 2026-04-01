@@ -6,17 +6,16 @@ namespace ve {
     struct ComputePipeline {
         VkPipeline handle;
 
-        ComputePipeline() = delete;
         ve_delete_copy_constructors(ComputePipeline);
         ve_delete_move_constructors(ComputePipeline);
 
+        ComputePipeline()
+            : handle {}
+        {
+        }
+
         ComputePipeline(const VkComputePipelineCreateInfo& createInfo)
         {
-            if (createInfo.stage.module == VK_NULL_HANDLE) {
-                this->handle = VK_NULL_HANDLE;
-                return;
-            }
-
             ve_vkcheck(vkCreateComputePipelines(
                 device.handle,
                 VK_NULL_HANDLE,
@@ -34,6 +33,42 @@ namespace ve {
                 this->handle,
                 {}
             );
+        }
+    };
+
+    template <uint32_t N>
+    struct ComputePipelines {
+        VkPipeline handles[N];
+
+        ve_delete_copy_constructors(ComputePipelines);
+        ve_delete_move_constructors(ComputePipelines);
+
+        ComputePipelines()
+            : handles {}
+        {
+        }
+
+        ComputePipelines(ArrayView<VkComputePipelineCreateInfo> createInfos)
+        {
+            ve_vkcheck(vkCreateComputePipelines(
+                device.handle,
+                VK_NULL_HANDLE,
+                createInfos.length,
+                createInfos.address,
+                {},
+                this->handles
+            ));
+        }
+
+        ~ComputePipelines()
+        {
+            for (uint32_t i {}; i < N; ++i) {
+                vkDestroyPipeline(
+                    device.handle,
+                    this->handles[i],
+                    {}
+                );
+            }
         }
     };
 

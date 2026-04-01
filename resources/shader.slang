@@ -1,5 +1,11 @@
 [[vk::binding(0, 0)]]
-RWTexture3D<float3> outputImage;
+RWTexture2D<float3> transmittanceImage;
+
+[[vk::binding(1, 0)]]
+Sampler2D transmittanceSampler;
+
+[[vk::binding(2, 0)]]
+RWTexture3D<float3> inscatteringImage;
 
 #ifndef RAY_POINTS
     #define RAY_POINTS 128
@@ -37,6 +43,7 @@ static constexpr float seaLevel = SEA_LEVEL;
 static constexpr float atmosphereEnd = ATMOSPHERE_END;
 static constexpr float atmosphereEndSquared = ATMOSPHERE_END * ATMOSPHERE_END;
 static constexpr float atmosphereRange = ATMOSPHERE_END - ATMOSPHERE_START;
+static constexpr float inverseAtmosphereRange = 1.0f / (atmosphereEnd - atmosphereStart);
 
 #ifndef RAYLEIGH_SCALE_HEIGHT
     #define RAYLEIGH_SCALE_HEIGHT 7994.0f
@@ -118,8 +125,50 @@ float sampleMieDensity(float sampleHeight)
 }
 
 [shader("compute")]
+[numthreads(4, 4, 1)]
+void transmittance(uint3 dispatchThreadID: SV_DispatchThreadID)
+{
+    float rayZenithCos = signPow(float(dispatchThreadID.x) / float(rayPoints) * 2.0f - 1.0f, 1.0f / 0.5f);
+    float height = pow(float(dispatchThreadID.y) / float(heightPoints), 2.0f) * atmosphereRange + atmosphereStart;
+
+    float3 rayDirection = { 0.0f, rayZenithCos, sqrt(1.0f - rayZenithCos * rayZenithCos) };
+    float3 rayOrigin = { 0.0f, height, 0.0f };
+
+    float opticalDepthLR = {};
+    float opticalDepthLM = {};
+
+    float A = dot(rayOrigin, rayDirection);
+    float B = dot(rayOrigin, rayOrigin) - atmosphereEndSquared;
+    float C = A * A - B;
+
+    if (C < 0.0f) {
+        transmittanceImage[dispatchThreadID.xy] = {};
+        return;
+    }
+
+    float atmosphereFarIntersection = -A + sqrt(C);
+    float segmentLength = atmosphereFarIntersection / float(lightSamples);
+
+    for (uint j = {}; j < lightSamples; ++j) {
+        float sampleDistance = segmentLength * (float(j) + 0.5f);
+        float3 samplePosition = rayOrigin + rayDirection * sampleDistance;
+        float sampleHeight = length(samplePosition);
+        float sampleAtmosphereHeight = sampleHeight - seaLevel;
+
+        opticalDepthLR += sampleRayleighDensity(sampleAtmosphereHeight) * segmentLength;
+        opticalDepthLM += sampleMieDensity(sampleAtmosphereHeight) * segmentLength;
+    }
+
+    float3 tau = rayleighScattering * opticalDepthLR + (mieScattering + mieAbsorption) * opticalDepthLM;
+
+    float3 attenuation = exp(-tau);
+
+    transmittanceImage[dispatchThreadID.xy] = attenuation;
+}
+
+[shader("compute")]
 [numthreads(4, 4, 4)]
-void compute(uint3 dispatchThreadID: SV_DispatchThreadID)
+void inscattering(uint3 dispatchThreadID: SV_DispatchThreadID)
 {
     float rayZenithCos = signPow(float(dispatchThreadID.x) / float(rayPoints) * 2.0f - 1.0f, 1.0f / 0.5f);
     float sunZenithCos = signPow(float(dispatchThreadID.y) / float(sunPoints) * 2.0f - 1.0f, 1.0f / 0.5f);
@@ -134,7 +183,7 @@ void compute(uint3 dispatchThreadID: SV_DispatchThreadID)
     float C = A * A - B;
 
     if (C < 0.0f) {
-        outputImage[dispatchThreadID] = {};
+        inscatteringImage[dispatchThreadID] = {};
         return;
     }
 
@@ -153,42 +202,26 @@ void compute(uint3 dispatchThreadID: SV_DispatchThreadID)
         float sampleHeight = length(samplePosition);
         float sampleAtmosphereHeight = sampleHeight - seaLevel;
 
-        float rayleighDensity = sampleRayleighDensity(sampleAtmosphereHeight);
-        float mieDensity = sampleMieDensity(sampleAtmosphereHeight);
-
-        float Hr = rayleighDensity * segmentLength;
-        float Hm = mieDensity * segmentLength;
+        float Hr = sampleRayleighDensity(sampleAtmosphereHeight) * segmentLength;
+        float Hm = sampleMieDensity(sampleAtmosphereHeight) * segmentLength;
 
         opticalDepthR += Hr;
         opticalDepthM += Hm;
 
-        float opticalDepthLR = {};
-        float opticalDepthLM = {};
+        float3 tau_view = rayleighScattering * opticalDepthR + (mieScattering + mieAbsorption) * opticalDepthM;
 
-        float A2 = dot(samplePosition, sunDirection);
-        float B2 = dot(samplePosition, samplePosition) - atmosphereEndSquared;
-        float C2 = A2 * A2 - B2;
+        float3 attenuation_view = exp(-tau_view);
 
-        if (C2 < 0.0f) {
-            continue;
-        }
+        float sampleSunZenithCos = dot(sunDirection, normalize(samplePosition));
 
-        float atmosphereFarIntersection2 = -A2 + sqrt(C2);
-        float segmentLength2 = atmosphereFarIntersection2 / float(lightSamples);
+        float2 uv = {
+            0.5f * (signPow(sampleSunZenithCos, 0.5f) + 1.0f),
+            pow((sampleHeight - atmosphereStart) * inverseAtmosphereRange, 0.5f)
+        };
 
-        for (uint j = {}; j < lightSamples; ++j) {
-            float sampleDistance2 = segmentLength2 * (float(j) + 0.5f);
-            float3 samplePosition2 = samplePosition + sunDirection * sampleDistance2;
-            float sampleHeight2 = length(samplePosition2);
-            float sampleAtmosphereHeight2 = sampleHeight2 - seaLevel;
+        float3 transmittance = transmittanceSampler.SampleLevel(uv, 0).xyz;
 
-            opticalDepthLR += sampleRayleighDensity(sampleAtmosphereHeight2) * segmentLength2;
-            opticalDepthLM += sampleMieDensity(sampleAtmosphereHeight2) * segmentLength2;
-        }
-
-        float3 tau = rayleighScattering * (opticalDepthR + opticalDepthLR) + (mieScattering + mieAbsorption) * (opticalDepthM + opticalDepthLM);
-
-        float3 attenuation = exp(-tau);
+        float3 attenuation = attenuation_view * transmittance;
 
         sumR += attenuation * Hr;
         sumM += attenuation * Hm;
@@ -196,5 +229,5 @@ void compute(uint3 dispatchThreadID: SV_DispatchThreadID)
 
     float3 inscattering = (sumR * rayleighScattering + sumM * mieScattering) * sunIntensity;
 
-    outputImage[dispatchThreadID] = { inscattering };
+    inscatteringImage[dispatchThreadID] = { inscattering };
 }

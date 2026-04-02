@@ -204,19 +204,31 @@ ve::Fence ve::singleUseFence {
 
 namespace ve {
     struct AtmosphereLutGenerationProperties {
-        VkFormat imageFormat;
-        uint32_t bytesPerPixel;
-        uint32_t rayPoints;
-        uint32_t sunPoints;
-        uint32_t heightPoints;
-        uint32_t viewSamples;
-        uint32_t lightSamples;
+        VkFormat transmittanceImageFormat;
+        uint32_t transmittanceBytesPerPixel;
+        uint32_t transmittanceRayPoints;
+        float transmittanceRayPointsCurve;
+        uint32_t transmittanceHeightPoints;
+        float transmittanceHeightPointsCurve;
+        uint32_t transmittanceSamples;
+
+        VkFormat inscatteringImageFormat;
+        uint32_t inscatteringBytesPerPixel;
+        uint32_t inscatteringRayPoints;
+        float inscatteringRayPointsCurve;
+        uint32_t inscatteringSunPoints;
+        float inscatteringSunPointsCurve;
+        uint32_t inscatteringHeightPoints;
+        float inscatteringHeightPointsCurve;
+        uint32_t inscatteringSamples;
+
         float atmosphereStart;
         float seaLevel;
         float atmosphereEnd;
+
         float rayleighScaleHeight;
         float mieScaleHeight;
-        float sunIntensity;
+
         float rayleighScatteringRed;
         float rayleighScatteringGreen;
         float rayleighScatteringBlue;
@@ -232,21 +244,40 @@ namespace ve {
 
     void generateLut(AtmosphereLutGenerationProperties properties, const char* fileName)
     {
-        ve_assert(((properties.rayPoints & 3) == 0) && ((properties.sunPoints & 3) == 0) && ((properties.heightPoints & 3) == 0));
+        ve_assert(
+            ((properties.transmittanceRayPoints & 3) == 0)
+            && ((properties.transmittanceHeightPoints & 3) == 0)
+            && ((properties.inscatteringRayPoints & 3) == 0)
+            && ((properties.inscatteringSunPoints & 3) == 0)
+            && ((properties.inscatteringHeightPoints & 3) == 0)
+        );
 
-        uint64_t transmittanceDataSize { properties.bytesPerPixel * properties.rayPoints * properties.heightPoints };
-        uint64_t inscatteringDataSize { properties.bytesPerPixel * properties.rayPoints * properties.sunPoints * properties.heightPoints };
-        uint64_t stagingBufferSize { atmosphereHeaderSize + transmittanceDataSize + inscatteringDataSize };
+        uint64_t transmittanceDataSize {
+            properties.transmittanceBytesPerPixel
+            * properties.transmittanceRayPoints
+            * properties.transmittanceHeightPoints
+        };
+        uint64_t inscatteringDataSize {
+            properties.inscatteringBytesPerPixel
+            * properties.inscatteringRayPoints
+            * properties.inscatteringSunPoints
+            * properties.inscatteringHeightPoints
+        };
+        uint64_t stagingBufferSize {
+            atmosphereHeaderSize
+            + transmittanceDataSize
+            + inscatteringDataSize
+        };
 
         ve::Image transmittanceImage {
             ve::makeImageCreateInfo(
                 {},
                 {},
                 VK_IMAGE_TYPE_2D,
-                properties.imageFormat,
+                properties.transmittanceImageFormat,
                 {
-                    properties.rayPoints,
-                    properties.heightPoints,
+                    properties.transmittanceRayPoints,
+                    properties.transmittanceHeightPoints,
                     1_u32,
                 },
                 1,
@@ -267,11 +298,11 @@ namespace ve {
                 {},
                 {},
                 VK_IMAGE_TYPE_3D,
-                properties.imageFormat,
+                properties.inscatteringImageFormat,
                 {
-                    properties.rayPoints,
-                    properties.sunPoints,
-                    properties.heightPoints,
+                    properties.inscatteringRayPoints,
+                    properties.inscatteringSunPoints,
+                    properties.inscatteringHeightPoints,
                 },
                 1,
                 1,
@@ -299,7 +330,7 @@ namespace ve {
                 {},
                 transmittanceImage.handle,
                 VK_IMAGE_VIEW_TYPE_2D,
-                properties.imageFormat,
+                properties.transmittanceImageFormat,
                 {
                     VK_COMPONENT_SWIZZLE_R,
                     VK_COMPONENT_SWIZZLE_G,
@@ -338,7 +369,7 @@ namespace ve {
                 {},
                 inscatteringImage.handle,
                 VK_IMAGE_VIEW_TYPE_3D,
-                properties.imageFormat,
+                properties.inscatteringImageFormat,
                 {
                     VK_COMPONENT_SWIZZLE_R,
                     VK_COMPONENT_SWIZZLE_G,
@@ -531,17 +562,22 @@ namespace ve {
 #define add_define_uint(name, value) \
     shaderCompileCommand += std::format(std::locale::classic(), "-D" name "={}u ", value);
 
-        add_define_uint("RAY_POINTS", properties.rayPoints);
-        add_define_uint("SUN_POINTS", properties.sunPoints);
-        add_define_uint("HEIGHT_POINTS", properties.heightPoints);
-
-        add_define_uint("VIEW_SAMPLES", properties.viewSamples);
-        add_define_uint("LIGHT_SAMPLES", properties.lightSamples);
-
-#undef add_define_uint
-
 #define add_define_float(name, value) \
     shaderCompileCommand += std::format(std::locale::classic(), "-D" name "={:.32f}f ", value);
+
+        add_define_uint("TRANSMITTANCE_RAY_POINTS", properties.transmittanceRayPoints);
+        add_define_float("TRANSMITTANCE_RAY_POINTS_CURVE", properties.transmittanceRayPointsCurve);
+        add_define_uint("TRANSMITTANCE_HEIGHT_POINTS", properties.transmittanceHeightPoints);
+        add_define_float("TRANSMITTANCE_HEIGHT_POINTS_CURVE", properties.transmittanceHeightPointsCurve);
+        add_define_uint("TRANSMITTANCE_SAMPLES", properties.transmittanceSamples);
+
+        add_define_uint("INSCATTERING_RAY_POINTS", properties.inscatteringRayPoints);
+        add_define_float("INSCATTERING_RAY_POINTS_CURVE", properties.inscatteringRayPointsCurve);
+        add_define_uint("INSCATTERING_SUN_POINTS", properties.inscatteringSunPoints);
+        add_define_float("INSCATTERING_SUN_POINTS_CURVE", properties.inscatteringSunPointsCurve);
+        add_define_uint("INSCATTERING_HEIGHT_POINTS", properties.inscatteringHeightPoints);
+        add_define_float("INSCATTERING_HEIGHT_POINTS_CURVE", properties.inscatteringHeightPointsCurve);
+        add_define_uint("INSCATTERING_SAMPLES", properties.inscatteringSamples);
 
         add_define_float("ATMOSPHERE_START", properties.atmosphereStart);
         add_define_float("SEA_LEVEL", properties.seaLevel);
@@ -550,7 +586,6 @@ namespace ve {
         add_define_float("RAYLEIGH_SCALE_HEIGHT", properties.rayleighScaleHeight);
         add_define_float("MIE_SCALE_HEIGHT", properties.mieScaleHeight);
 
-        add_define_float("SUN_INTENSITY", properties.sunIntensity);
         add_define_float("RAYLEIGH_SCATTERING_RED", properties.rayleighScatteringRed);
         add_define_float("RAYLEIGH_SCATTERING_GREEN", properties.rayleighScatteringGreen);
         add_define_float("RAYLEIGH_SCATTERING_BLUE", properties.rayleighScatteringBlue);
@@ -561,6 +596,7 @@ namespace ve {
         add_define_float("MIE_ABSORPTION_GREEN", properties.mieAbsorptionGreen);
         add_define_float("MIE_ABSORPTION_BLUE", properties.mieAbsorptionBlue);
 
+#undef add_define_uint
 #undef add_define_float
 
         shaderCompileCommand += "shader.slang -o shader.spv";
@@ -679,8 +715,8 @@ namespace ve {
 
         vkCmdDispatch(
             ve::singleUseCommandBuffer.handle,
-            properties.rayPoints >> 2_u32,
-            properties.heightPoints >> 2_u32,
+            properties.transmittanceRayPoints >> 2_u32,
+            properties.transmittanceHeightPoints >> 2_u32,
             1_u32
         );
 
@@ -722,8 +758,8 @@ namespace ve {
             },
             {},
             {
-                properties.rayPoints,
-                properties.heightPoints,
+                properties.transmittanceRayPoints,
+                properties.transmittanceHeightPoints,
                 1_u32,
             },
         };
@@ -796,9 +832,9 @@ namespace ve {
 
         vkCmdDispatch(
             ve::singleUseCommandBuffer.handle,
-            properties.rayPoints >> 2_u32,
-            properties.sunPoints >> 2_u32,
-            properties.heightPoints >> 2_u32
+            properties.inscatteringRayPoints >> 2_u32,
+            properties.inscatteringSunPoints >> 2_u32,
+            properties.inscatteringHeightPoints >> 2_u32
         );
 
         convertTransferImageBarrier.image = inscatteringImage.handle;
@@ -828,9 +864,9 @@ namespace ve {
             },
             {},
             {
-                properties.rayPoints,
-                properties.sunPoints,
-                properties.heightPoints,
+                properties.inscatteringRayPoints,
+                properties.inscatteringSunPoints,
+                properties.inscatteringHeightPoints,
             },
         };
 
@@ -885,40 +921,51 @@ namespace ve {
             {}
         ));
 
-        // magic number 'ATMO'
+        // Magic number 'ATMO'
         reinterpret_cast<uint32_t*>(stagingBuffer.data)[0_u32] = 0x41544D4F_u32;
 
-        // version
-        reinterpret_cast<uint32_t*>(stagingBuffer.data)[1_u32] = 1_u32;
+        // Version
+        reinterpret_cast<uint32_t*>(stagingBuffer.data)[1_u32] = 2_u32;
 
-        // properties
-        reinterpret_cast<uint32_t*>(stagingBuffer.data)[2_u32] = properties.imageFormat;
-        reinterpret_cast<uint32_t*>(stagingBuffer.data)[3_u32] = properties.bytesPerPixel;
+        // Transmittance properties
+        reinterpret_cast<uint32_t*>(stagingBuffer.data)[2_u32] = properties.transmittanceImageFormat;
+        reinterpret_cast<uint32_t*>(stagingBuffer.data)[3_u32] = properties.transmittanceBytesPerPixel;
+        reinterpret_cast<uint32_t*>(stagingBuffer.data)[4_u32] = properties.transmittanceRayPoints;
+        reinterpret_cast<float*>(stagingBuffer.data)[5_u32] = properties.transmittanceRayPointsCurve;
+        reinterpret_cast<uint32_t*>(stagingBuffer.data)[6_u32] = properties.transmittanceHeightPoints;
+        reinterpret_cast<float*>(stagingBuffer.data)[7_u32] = properties.transmittanceHeightPointsCurve;
+        reinterpret_cast<uint32_t*>(stagingBuffer.data)[8_u32] = properties.transmittanceSamples;
 
-        reinterpret_cast<uint32_t*>(stagingBuffer.data)[4_u32] = properties.rayPoints;
-        reinterpret_cast<uint32_t*>(stagingBuffer.data)[5_u32] = properties.sunPoints;
-        reinterpret_cast<uint32_t*>(stagingBuffer.data)[6_u32] = properties.heightPoints;
+        // Inscattering properties
+        reinterpret_cast<uint32_t*>(stagingBuffer.data)[9_u32] = properties.inscatteringImageFormat;
+        reinterpret_cast<uint32_t*>(stagingBuffer.data)[10_u32] = properties.inscatteringBytesPerPixel;
+        reinterpret_cast<uint32_t*>(stagingBuffer.data)[11_u32] = properties.inscatteringRayPoints;
+        reinterpret_cast<float*>(stagingBuffer.data)[12_u32] = properties.inscatteringRayPointsCurve;
+        reinterpret_cast<uint32_t*>(stagingBuffer.data)[13_u32] = properties.inscatteringSunPoints;
+        reinterpret_cast<float*>(stagingBuffer.data)[14_u32] = properties.inscatteringSunPointsCurve;
+        reinterpret_cast<uint32_t*>(stagingBuffer.data)[15_u32] = properties.inscatteringHeightPoints;
+        reinterpret_cast<float*>(stagingBuffer.data)[16_u32] = properties.inscatteringHeightPointsCurve;
+        reinterpret_cast<uint32_t*>(stagingBuffer.data)[17_u32] = properties.inscatteringSamples;
 
-        reinterpret_cast<float*>(stagingBuffer.data)[7_u32] = properties.atmosphereStart;
-        reinterpret_cast<float*>(stagingBuffer.data)[8_u32] = properties.seaLevel;
-        reinterpret_cast<float*>(stagingBuffer.data)[9_u32] = properties.atmosphereEnd;
+        // Atmosphere dimensions
+        reinterpret_cast<float*>(stagingBuffer.data)[18_u32] = properties.atmosphereStart;
+        reinterpret_cast<float*>(stagingBuffer.data)[19_u32] = properties.seaLevel;
+        reinterpret_cast<float*>(stagingBuffer.data)[20_u32] = properties.atmosphereEnd;
 
-        reinterpret_cast<float*>(stagingBuffer.data)[10_u32] = properties.rayleighScaleHeight;
-        reinterpret_cast<float*>(stagingBuffer.data)[11_u32] = properties.mieScaleHeight;
+        // Scattering scale heights
+        reinterpret_cast<float*>(stagingBuffer.data)[21_u32] = properties.rayleighScaleHeight;
+        reinterpret_cast<float*>(stagingBuffer.data)[22_u32] = properties.mieScaleHeight;
 
-        reinterpret_cast<float*>(stagingBuffer.data)[12_u32] = properties.sunIntensity;
-
-        reinterpret_cast<float*>(stagingBuffer.data)[13_u32] = properties.rayleighScatteringRed;
-        reinterpret_cast<float*>(stagingBuffer.data)[14_u32] = properties.rayleighScatteringGreen;
-        reinterpret_cast<float*>(stagingBuffer.data)[15_u32] = properties.rayleighScatteringBlue;
-
-        reinterpret_cast<float*>(stagingBuffer.data)[16_u32] = properties.mieScatteringRed;
-        reinterpret_cast<float*>(stagingBuffer.data)[17_u32] = properties.mieScatteringGreen;
-        reinterpret_cast<float*>(stagingBuffer.data)[18_u32] = properties.mieScatteringBlue;
-
-        reinterpret_cast<float*>(stagingBuffer.data)[19_u32] = properties.mieAbsorptionRed;
-        reinterpret_cast<float*>(stagingBuffer.data)[20_u32] = properties.mieAbsorptionGreen;
-        reinterpret_cast<float*>(stagingBuffer.data)[21_u32] = properties.mieAbsorptionBlue;
+        // Scattering parameters
+        reinterpret_cast<float*>(stagingBuffer.data)[23_u32] = properties.rayleighScatteringRed;
+        reinterpret_cast<float*>(stagingBuffer.data)[24_u32] = properties.rayleighScatteringGreen;
+        reinterpret_cast<float*>(stagingBuffer.data)[25_u32] = properties.rayleighScatteringBlue;
+        reinterpret_cast<float*>(stagingBuffer.data)[26_u32] = properties.mieScatteringRed;
+        reinterpret_cast<float*>(stagingBuffer.data)[27_u32] = properties.mieScatteringGreen;
+        reinterpret_cast<float*>(stagingBuffer.data)[28_u32] = properties.mieScatteringBlue;
+        reinterpret_cast<float*>(stagingBuffer.data)[29_u32] = properties.mieAbsorptionRed;
+        reinterpret_cast<float*>(stagingBuffer.data)[30_u32] = properties.mieAbsorptionGreen;
+        reinterpret_cast<float*>(stagingBuffer.data)[31_u32] = properties.mieAbsorptionBlue;
 
         std::ofstream(fileName, std::ios::binary).write(reinterpret_cast<char*>(stagingBuffer.data), stagingBufferSize);
     }
@@ -929,17 +976,25 @@ int main(int, char*[])
     constexpr ve::AtmosphereLutGenerationProperties jupiterProperties {
         VK_FORMAT_B10G11R11_UFLOAT_PACK32,
         4_u32,
-        128_u32,
-        96_u32,
-        48_u32,
+        512_u32,
+        0.5f,
+        512_u32,
+        0.5f,
         100000_u32,
+        VK_FORMAT_B10G11R11_UFLOAT_PACK32,
+        4_u32,
+        128_u32,
+        0.5f,
+        96_u32,
+        0.5f,
+        48_u32,
+        0.5f,
         100000_u32,
         2.9575e6_f,
         3.0e6_f,
         3.3e6_f,
         27000.0_f,
         12000.0_f,
-        8.0_f,
         1.5e-6_f,
         1.0e-6_f,
         0.8e-6_f,

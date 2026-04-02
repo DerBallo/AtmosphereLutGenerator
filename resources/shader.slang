@@ -1,113 +1,196 @@
 [[vk::binding(0, 0)]]
-RWTexture2D<float3> transmittanceImage;
+RWTexture2D<float4> transmittanceImage;
 
 [[vk::binding(1, 0)]]
 Sampler2D transmittanceSampler;
 
 [[vk::binding(2, 0)]]
-RWTexture3D<float3> inscatteringImage;
+RWTexture3D<float4> inscatteringImage;
 
-#ifndef RAY_POINTS
-    #define RAY_POINTS 128
+// ======== Transmittance ========
+// TRANSMITTANCE_RAY_POINTS
+#ifndef TRANSMITTANCE_RAY_POINTS
+    #warning "TRANSMITTANCE_RAY_POINTS should be defined"
+    #define TRANSMITTANCE_RAY_POINTS 0
 #endif
-static constexpr uint rayPoints = RAY_POINTS;
-#ifndef SUN_POINTS
-    #define SUN_POINTS 96
-#endif
-static constexpr uint sunPoints = SUN_POINTS;
-#ifndef HEIGHT_POINTS
-    #define HEIGHT_POINTS 48
-#endif
-static constexpr uint heightPoints = HEIGHT_POINTS;
+static constexpr uint transmittanceRayPoints = uint(TRANSMITTANCE_RAY_POINTS);
 
-#ifndef VIEW_SAMPLES
-    #define VIEW_SAMPLES 1000
+// TRANSMITTANCE_RAY_POINTS_CURVE
+#ifndef TRANSMITTANCE_RAY_POINTS_CURVE
+    #warning "TRANSMITTANCE_RAY_POINTS_CURVE should be defined"
+    #define TRANSMITTANCE_RAY_POINTS_CURVE 0
 #endif
-static constexpr uint viewSamples = VIEW_SAMPLES;
-#ifndef LIGHT_SAMPLES
-    #define LIGHT_SAMPLES 100
-#endif
-static constexpr uint lightSamples = LIGHT_SAMPLES;
+static constexpr float transmittanceRayPointsCurve = float(TRANSMITTANCE_RAY_POINTS_CURVE);
 
+// TRANSMITTANCE_HEIGHT_POINTS
+#ifndef TRANSMITTANCE_HEIGHT_POINTS
+    #warning "TRANSMITTANCE_HEIGHT_POINTS should be defined"
+    #define TRANSMITTANCE_HEIGHT_POINTS 0
+#endif
+static constexpr uint transmittanceHeightPoints = uint(TRANSMITTANCE_HEIGHT_POINTS);
+
+// TRANSMITTANCE_HEIGHT_POINTS_CURVE
+#ifndef TRANSMITTANCE_HEIGHT_POINTS_CURVE
+    #warning "TRANSMITTANCE_HEIGHT_POINTS_CURVE should be defined"
+    #define TRANSMITTANCE_HEIGHT_POINTS_CURVE 0
+#endif
+static constexpr float transmittanceHeightPointsCurve = float(TRANSMITTANCE_HEIGHT_POINTS_CURVE);
+
+// TRANSMITTANCE_SAMPLES
+#ifndef TRANSMITTANCE_SAMPLES
+    #warning "TRANSMITTANCE_SAMPLES should be defined"
+    #define TRANSMITTANCE_SAMPLES 0
+#endif
+static constexpr uint transmittanceSamples = uint(TRANSMITTANCE_SAMPLES);
+
+// ======== Inscattering ========
+// INSCATTERING_RAY_POINTS
+#ifndef INSCATTERING_RAY_POINTS
+    #warning "INSCATTERING_RAY_POINTS should be defined"
+    #define INSCATTERING_RAY_POINTS 0
+#endif
+static constexpr uint inscatteringRayPoints = uint(INSCATTERING_RAY_POINTS);
+
+// INSCATTERING_RAY_POINTS_CURVE
+#ifndef INSCATTERING_RAY_POINTS_CURVE
+    #warning "INSCATTERING_RAY_POINTS_CURVE should be defined"
+    #define INSCATTERING_RAY_POINTS_CURVE 0
+#endif
+static constexpr float inscatteringRayPointsCurve = float(INSCATTERING_RAY_POINTS_CURVE);
+
+// INSCATTERING_SUN_POINTS
+#ifndef INSCATTERING_SUN_POINTS
+    #warning "INSCATTERING_SUN_POINTS should be defined"
+    #define INSCATTERING_SUN_POINTS 0
+#endif
+static constexpr uint inscatteringSunPoints = uint(INSCATTERING_SUN_POINTS);
+
+// INSCATTERING_SUN_POINTS_CURVE
+#ifndef INSCATTERING_SUN_POINTS_CURVE
+    #warning "INSCATTERING_SUN_POINTS_CURVE should be defined"
+    #define INSCATTERING_SUN_POINTS_CURVE 0
+#endif
+static constexpr float inscatteringSunPointsCurve = float(INSCATTERING_SUN_POINTS_CURVE);
+
+// INSCATTERING_HEIGHT_POINTS
+#ifndef INSCATTERING_HEIGHT_POINTS
+    #warning "INSCATTERING_HEIGHT_POINTS should be defined"
+    #define INSCATTERING_HEIGHT_POINTS 0
+#endif
+static constexpr uint inscatteringHeightPoints = uint(INSCATTERING_HEIGHT_POINTS);
+
+// INSCATTERING_HEIGHT_POINTS_CURVE
+#ifndef INSCATTERING_HEIGHT_POINTS_CURVE
+    #warning "INSCATTERING_HEIGHT_POINTS_CURVE should be defined"
+    #define INSCATTERING_HEIGHT_POINTS_CURVE 0
+#endif
+static constexpr float inscatteringHeightPointsCurve = float(INSCATTERING_HEIGHT_POINTS_CURVE);
+
+// INSCATTERING_SAMPLES
+#ifndef INSCATTERING_SAMPLES
+    #warning "INSCATTERING_SAMPLES should be defined"
+    #define INSCATTERING_SAMPLES 0
+#endif
+static constexpr uint inscatteringSamples = uint(INSCATTERING_SAMPLES);
+
+// ======== Atmosphere dimensions ========
+// ATMOSPHERE_START
 #ifndef ATMOSPHERE_START
-    #define ATMOSPHERE_START 6345e3f
+    #warning "ATMOSPHERE_START should be defined"
+    #define ATMOSPHERE_START 0
 #endif
-static constexpr float atmosphereStart = ATMOSPHERE_START;
+static constexpr float atmosphereStart = float(ATMOSPHERE_START);
+
+// SEA_LEVEL
 #ifndef SEA_LEVEL
-    #define SEA_LEVEL 6360e3f
+    #warning "SEA_LEVEL should be defined"
+    #define SEA_LEVEL 0
 #endif
-static constexpr float seaLevel = SEA_LEVEL;
+static constexpr float seaLevel = float(SEA_LEVEL);
+
+// ATMOSPHERE_END
 #ifndef ATMOSPHERE_END
-    #define ATMOSPHERE_END 6460e3f
+    #warning "ATMOSPHERE_END should be defined"
+    #define ATMOSPHERE_END 0
 #endif
-static constexpr float atmosphereEnd = ATMOSPHERE_END;
-static constexpr float atmosphereEndSquared = ATMOSPHERE_END * ATMOSPHERE_END;
-static constexpr float atmosphereRange = ATMOSPHERE_END - ATMOSPHERE_START;
-static constexpr float inverseAtmosphereRange = 1.0f / (atmosphereEnd - atmosphereStart);
+static constexpr float atmosphereEnd = float(ATMOSPHERE_END);
 
+static constexpr float atmosphereEndSquared = atmosphereEnd * atmosphereEnd;
+static constexpr float atmosphereRange = atmosphereEnd - atmosphereStart;
+static constexpr float inverseAtmosphereRange = 1.0f / atmosphereRange;
+
+// ======== Scattering scale heights ========
+// RAYLEIGH_SCALE_HEIGHT
 #ifndef RAYLEIGH_SCALE_HEIGHT
-    #define RAYLEIGH_SCALE_HEIGHT 7994.0f
+    #warning "RAYLEIGH_SCALE_HEIGHT should be defined"
+    #define RAYLEIGH_SCALE_HEIGHT 0
 #endif
-static constexpr float rayleighScaleHeight = RAYLEIGH_SCALE_HEIGHT;
-#ifndef MIE_SCALE_HEIGHT
-    #define MIE_SCALE_HEIGHT 5000.0f
-#endif
-static constexpr float mieScaleHeight = MIE_SCALE_HEIGHT;
-// static constexpr float mieScaleHeight = 1200.0f;
+static constexpr float rayleighScaleHeight = float(RAYLEIGH_SCALE_HEIGHT);
 
-#ifndef SUN_INTENSITY
-    #define SUN_INTENSITY 20.0f
+// MIE_SCALE_HEIGHT
+#ifndef MIE_SCALE_HEIGHT
+    #warning "MIE_SCALE_HEIGHT should be defined"
+    #define MIE_SCALE_HEIGHT 0
 #endif
-static constexpr float sunIntensity = SUN_INTENSITY;
+static constexpr float mieScaleHeight = float(MIE_SCALE_HEIGHT);
+
+// ======== Scattering parameters ========
+// RAYLEIGH_SCATTERING
 #ifndef RAYLEIGH_SCATTERING_RED
-    #define RAYLEIGH_SCATTERING_RED 15e-6f
+    #warning "RAYLEIGH_SCATTERING_RED should be defined"
+    #define RAYLEIGH_SCATTERING_RED 0
 #endif
 #ifndef RAYLEIGH_SCATTERING_GREEN
-    #define RAYLEIGH_SCATTERING_GREEN 15e-6f
+    #warning "RAYLEIGH_SCATTERING_GREEN should be defined"
+    #define RAYLEIGH_SCATTERING_GREEN 0
 #endif
 #ifndef RAYLEIGH_SCATTERING_BLUE
-    #define RAYLEIGH_SCATTERING_BLUE 15e-6f
+    #warning "RAYLEIGH_SCATTERING_BLUE should be defined"
+    #define RAYLEIGH_SCATTERING_BLUE 0
 #endif
-static constexpr float3 rayleighScattering = {
+static constexpr float3 rayleighScattering = float3(
     RAYLEIGH_SCATTERING_RED,
     RAYLEIGH_SCATTERING_GREEN,
     RAYLEIGH_SCATTERING_BLUE
-};
+);
+
+// MIE_SCATTERING
 #ifndef MIE_SCATTERING_RED
-    #define MIE_SCATTERING_RED 70e-6f
+    #warning "MIE_SCATTERING_RED should be defined"
+    #define MIE_SCATTERING_RED 0
 #endif
 #ifndef MIE_SCATTERING_GREEN
-    #define MIE_SCATTERING_GREEN 50e-6f
+    #warning "MIE_SCATTERING_GREEN should be defined"
+    #define MIE_SCATTERING_GREEN 0
 #endif
 #ifndef MIE_SCATTERING_BLUE
-    #define MIE_SCATTERING_BLUE 35e-6f
+    #warning "MIE_SCATTERING_BLUE should be defined"
+    #define MIE_SCATTERING_BLUE 0
 #endif
-static constexpr float3 mieScattering = {
+static constexpr float3 mieScattering = float3(
     MIE_SCATTERING_RED,
     MIE_SCATTERING_GREEN,
     MIE_SCATTERING_BLUE
-};
+);
+
+// MIE_ABSORPTION
 #ifndef MIE_ABSORPTION_RED
-    #define MIE_ABSORPTION_RED 5.8e-6f
+    #warning "MIE_ABSORPTION_RED should be defined"
+    #define MIE_ABSORPTION_RED 0
 #endif
 #ifndef MIE_ABSORPTION_GREEN
-    #define MIE_ABSORPTION_GREEN 13e-6f
+    #warning "MIE_ABSORPTION_GREEN should be defined"
+    #define MIE_ABSORPTION_GREEN 0
 #endif
 #ifndef MIE_ABSORPTION_BLUE
-    #define MIE_ABSORPTION_BLUE 22.4e-6f
+    #warning "MIE_ABSORPTION_BLUE should be defined"
+    #define MIE_ABSORPTION_BLUE 0
 #endif
-static constexpr float3 mieAbsorption = {
+static constexpr float3 mieAbsorption = float3(
     MIE_ABSORPTION_RED,
     MIE_ABSORPTION_GREEN,
     MIE_ABSORPTION_BLUE
-};
-// static constexpr float3 rayleighScattering = { 15e-6f, 15e-6f, 15e-6f };
-// static constexpr float3 rayleighScattering = { 5.8e-6f, 13e-6f, 22.4e-6f };
-// static constexpr float3 mieScattering = { 70e-6f, 50e-6f, 35e-6f };
-// static constexpr float3 mieScattering = { 20e-6f, 20e-6f, 20e-6f };
-// static constexpr float3 mieAbsorption = { 8e-5f, 15e-5f, 25e-5f };
-// static constexpr float3 mieAbsorption = { 22e-6f, 22e-6f, 22e-6f };
-// static constexpr float3 mieAbsorption = { 0.0f, 0.0f, 0.0f };
+);
 
 float signPow(float x, float power)
 {
@@ -128,8 +211,8 @@ float sampleMieDensity(float sampleHeight)
 [numthreads(4, 4, 1)]
 void transmittance(uint3 dispatchThreadID: SV_DispatchThreadID)
 {
-    float rayZenithCos = signPow(float(dispatchThreadID.x) / float(rayPoints) * 2.0f - 1.0f, 1.0f / 0.5f);
-    float height = pow(float(dispatchThreadID.y) / float(heightPoints), 2.0f) * atmosphereRange + atmosphereStart;
+    float rayZenithCos = signPow(float(dispatchThreadID.x) / float(transmittanceRayPoints) * 2.0f - 1.0f, 1.0f / transmittanceRayPointsCurve);
+    float height = signPow(float(dispatchThreadID.y) / float(transmittanceHeightPoints), 1.0f / transmittanceHeightPointsCurve) * atmosphereRange + atmosphereStart;
 
     float3 rayDirection = { 0.0f, rayZenithCos, sqrt(1.0f - rayZenithCos * rayZenithCos) };
     float3 rayOrigin = { 0.0f, height, 0.0f };
@@ -147,9 +230,9 @@ void transmittance(uint3 dispatchThreadID: SV_DispatchThreadID)
     }
 
     float atmosphereFarIntersection = -A + sqrt(C);
-    float segmentLength = atmosphereFarIntersection / float(lightSamples);
+    float segmentLength = atmosphereFarIntersection / float(transmittanceSamples);
 
-    for (uint j = {}; j < lightSamples; ++j) {
+    for (uint j = {}; j < transmittanceSamples; ++j) {
         float sampleDistance = segmentLength * (float(j) + 0.5f);
         float3 samplePosition = rayOrigin + rayDirection * sampleDistance;
         float sampleHeight = length(samplePosition);
@@ -163,16 +246,16 @@ void transmittance(uint3 dispatchThreadID: SV_DispatchThreadID)
 
     float3 attenuation = exp(-tau);
 
-    transmittanceImage[dispatchThreadID.xy] = attenuation;
+    transmittanceImage[dispatchThreadID.xy] = float4(attenuation, 1.0f);
 }
 
 [shader("compute")]
 [numthreads(4, 4, 4)]
 void inscattering(uint3 dispatchThreadID: SV_DispatchThreadID)
 {
-    float rayZenithCos = signPow(float(dispatchThreadID.x) / float(rayPoints) * 2.0f - 1.0f, 1.0f / 0.5f);
-    float sunZenithCos = signPow(float(dispatchThreadID.y) / float(sunPoints) * 2.0f - 1.0f, 1.0f / 0.5f);
-    float height = pow(float(dispatchThreadID.z) / float(heightPoints), 2.0f) * atmosphereRange + atmosphereStart;
+    float rayZenithCos = signPow(float(dispatchThreadID.x) / float(inscatteringRayPoints) * 2.0f - 1.0f, 1.0f / inscatteringRayPointsCurve);
+    float sunZenithCos = signPow(float(dispatchThreadID.y) / float(inscatteringSunPoints) * 2.0f - 1.0f, 1.0f / inscatteringSunPointsCurve);
+    float height = pow(float(dispatchThreadID.z) / float(inscatteringHeightPoints), 1.0f / inscatteringHeightPointsCurve) * atmosphereRange + atmosphereStart;
 
     float3 rayDirection = { 0.0f, rayZenithCos, sqrt(1.0f - rayZenithCos * rayZenithCos) };
     float3 rayOrigin = { 0.0f, height, 0.0f };
@@ -188,7 +271,7 @@ void inscattering(uint3 dispatchThreadID: SV_DispatchThreadID)
     }
 
     float atmosphereFarIntersection = -A + sqrt(C);
-    float segmentLength = atmosphereFarIntersection / float(viewSamples);
+    float segmentLength = atmosphereFarIntersection / float(inscatteringSamples);
 
     float3 sumR = {};
     float3 sumM = {};
@@ -196,7 +279,7 @@ void inscattering(uint3 dispatchThreadID: SV_DispatchThreadID)
     float opticalDepthR = {};
     float opticalDepthM = {};
 
-    for (uint i = {}; i < viewSamples; ++i) {
+    for (uint i = {}; i < inscatteringSamples; ++i) {
         float sampleDistance = segmentLength * (float(i) + 0.5f);
         float3 samplePosition = rayOrigin + rayDirection * sampleDistance;
         float sampleHeight = length(samplePosition);
@@ -227,7 +310,7 @@ void inscattering(uint3 dispatchThreadID: SV_DispatchThreadID)
         sumM += attenuation * Hm;
     }
 
-    float3 inscattering = (sumR * rayleighScattering + sumM * mieScattering) * sunIntensity;
+    float3 inscattering = (sumR * rayleighScattering + sumM * mieScattering) * 8.0f;
 
-    inscatteringImage[dispatchThreadID] = { inscattering };
+    inscatteringImage[dispatchThreadID] = float4(inscattering, 1.0f);
 }

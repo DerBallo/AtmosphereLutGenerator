@@ -228,6 +228,7 @@ namespace ve {
 
         float rayleighScaleHeight;
         float mieScaleHeight;
+        float mieAnisotropy;
 
         float rayleighScatteringRed;
         float rayleighScatteringGreen;
@@ -925,7 +926,7 @@ namespace ve {
         reinterpret_cast<uint32_t*>(stagingBuffer.data)[0_u32] = 0x41544D4F_u32;
 
         // Version
-        reinterpret_cast<uint32_t*>(stagingBuffer.data)[1_u32] = 2_u32;
+        reinterpret_cast<uint32_t*>(stagingBuffer.data)[1_u32] = 3_u32;
 
         // Transmittance properties
         reinterpret_cast<uint32_t*>(stagingBuffer.data)[2_u32] = properties.transmittanceImageFormat;
@@ -952,20 +953,21 @@ namespace ve {
         reinterpret_cast<float*>(stagingBuffer.data)[19_u32] = properties.seaLevel;
         reinterpret_cast<float*>(stagingBuffer.data)[20_u32] = properties.atmosphereEnd;
 
-        // Scattering scale heights
+        // Scattering properties
         reinterpret_cast<float*>(stagingBuffer.data)[21_u32] = properties.rayleighScaleHeight;
         reinterpret_cast<float*>(stagingBuffer.data)[22_u32] = properties.mieScaleHeight;
+        reinterpret_cast<float*>(stagingBuffer.data)[23_u32] = properties.mieAnisotropy;
 
-        // Scattering parameters
-        reinterpret_cast<float*>(stagingBuffer.data)[23_u32] = properties.rayleighScatteringRed;
-        reinterpret_cast<float*>(stagingBuffer.data)[24_u32] = properties.rayleighScatteringGreen;
-        reinterpret_cast<float*>(stagingBuffer.data)[25_u32] = properties.rayleighScatteringBlue;
-        reinterpret_cast<float*>(stagingBuffer.data)[26_u32] = properties.mieScatteringRed;
-        reinterpret_cast<float*>(stagingBuffer.data)[27_u32] = properties.mieScatteringGreen;
-        reinterpret_cast<float*>(stagingBuffer.data)[28_u32] = properties.mieScatteringBlue;
-        reinterpret_cast<float*>(stagingBuffer.data)[29_u32] = properties.mieAbsorptionRed;
-        reinterpret_cast<float*>(stagingBuffer.data)[30_u32] = properties.mieAbsorptionGreen;
-        reinterpret_cast<float*>(stagingBuffer.data)[31_u32] = properties.mieAbsorptionBlue;
+        // Scattering values
+        reinterpret_cast<float*>(stagingBuffer.data)[24_u32] = properties.rayleighScatteringRed;
+        reinterpret_cast<float*>(stagingBuffer.data)[25_u32] = properties.rayleighScatteringGreen;
+        reinterpret_cast<float*>(stagingBuffer.data)[26_u32] = properties.rayleighScatteringBlue;
+        reinterpret_cast<float*>(stagingBuffer.data)[27_u32] = properties.mieScatteringRed;
+        reinterpret_cast<float*>(stagingBuffer.data)[28_u32] = properties.mieScatteringGreen;
+        reinterpret_cast<float*>(stagingBuffer.data)[29_u32] = properties.mieScatteringBlue;
+        reinterpret_cast<float*>(stagingBuffer.data)[30_u32] = properties.mieAbsorptionRed;
+        reinterpret_cast<float*>(stagingBuffer.data)[31_u32] = properties.mieAbsorptionGreen;
+        reinterpret_cast<float*>(stagingBuffer.data)[32_u32] = properties.mieAbsorptionBlue;
 
         std::ofstream(fileName, std::ios::binary).write(reinterpret_cast<char*>(stagingBuffer.data), stagingBufferSize);
     }
@@ -977,24 +979,25 @@ int main(int, char*[])
         VK_FORMAT_B10G11R11_UFLOAT_PACK32,
         4_u32,
         512_u32,
-        0.5f,
+        0.4f,
         512_u32,
-        0.5f,
+        0.4f,
         100000_u32,
         VK_FORMAT_B10G11R11_UFLOAT_PACK32,
         4_u32,
-        128_u32,
-        0.5f,
+        256_u32,
+        0.4f,
         96_u32,
-        0.5f,
-        48_u32,
-        0.5f,
+        0.3f,
+        96_u32,
+        0.4f,
         100000_u32,
-        2.9575e6_f,
-        3.0e6_f,
-        3.3e6_f,
+        5.9575e6_f,
+        6.0e6_f,
+        6.3e6_f,
         27000.0_f,
         12000.0_f,
+        0.8_f,
         1.5e-6_f,
         1.0e-6_f,
         0.8e-6_f,

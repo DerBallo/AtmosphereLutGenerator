@@ -119,7 +119,7 @@ static constexpr float atmosphereEndSquared = atmosphereEnd * atmosphereEnd;
 static constexpr float atmosphereRange = atmosphereEnd - atmosphereStart;
 static constexpr float inverseAtmosphereRange = 1.0f / atmosphereRange;
 
-// ======== Scattering scale heights ========
+// ======== Scattering properties ========
 // RAYLEIGH_SCALE_HEIGHT
 #ifndef RAYLEIGH_SCALE_HEIGHT
     #warning "RAYLEIGH_SCALE_HEIGHT should be defined"
@@ -134,7 +134,7 @@ static constexpr float rayleighScaleHeight = float(RAYLEIGH_SCALE_HEIGHT);
 #endif
 static constexpr float mieScaleHeight = float(MIE_SCALE_HEIGHT);
 
-// ======== Scattering parameters ========
+// ======== Scattering values ========
 // RAYLEIGH_SCATTERING
 #ifndef RAYLEIGH_SCATTERING_RED
     #warning "RAYLEIGH_SCATTERING_RED should be defined"
@@ -257,7 +257,7 @@ void inscattering(uint3 dispatchThreadID: SV_DispatchThreadID)
     float sunZenithCos = signPow(float(dispatchThreadID.y) / float(inscatteringSunPoints) * 2.0f - 1.0f, 1.0f / inscatteringSunPointsCurve);
     float height = pow(float(dispatchThreadID.z) / float(inscatteringHeightPoints), 1.0f / inscatteringHeightPointsCurve) * atmosphereRange + atmosphereStart;
 
-    float3 rayDirection = { 0.0f, rayZenithCos, sqrt(1.0f - rayZenithCos * rayZenithCos) };
+    float3 rayDirection = { sqrt(1.0f - rayZenithCos * rayZenithCos), rayZenithCos, 0.0f };
     float3 rayOrigin = { 0.0f, height, 0.0f };
     float3 sunDirection = { sqrt(1.0f - sunZenithCos * sunZenithCos), sunZenithCos, 0.0f };
 
@@ -298,8 +298,8 @@ void inscattering(uint3 dispatchThreadID: SV_DispatchThreadID)
         float sampleSunZenithCos = dot(sunDirection, normalize(samplePosition));
 
         float2 uv = {
-            0.5f * (signPow(sampleSunZenithCos, 0.5f) + 1.0f),
-            pow((sampleHeight - atmosphereStart) * inverseAtmosphereRange, 0.5f)
+            signPow(sampleSunZenithCos, transmittanceRayPointsCurve) * 0.5f + 0.5f,
+            signPow((sampleHeight - atmosphereStart) * inverseAtmosphereRange, transmittanceHeightPointsCurve)
         };
 
         float3 transmittance = transmittanceSampler.SampleLevel(uv, 0).xyz;

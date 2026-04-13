@@ -39,9 +39,9 @@ Generates a binary LUT for a vulkan atmosphere shader and saves it as a file.
 | 120 | 4 | float | mie absorption red |
 | 124 | 4 | float | mie absorption green |
 | 128 | 4 | float | mie absorption blue |
-| padding | padding until 256 | padding | padding |
-| 256 | transmittanceDataSize | tightly packed pixel data | transmittance |
-| transmittanceDataSize | inscatteringDataSize | tightly packed pixel data | inscattering |
+| 132 | padding until 256 | padding | padding |
+| 256 | `transmittanceDataSize` | tightly packed pixel data | transmittance |
+| `transmittanceDataSize` | `inscatteringDataSize` | tightly packed pixel data | inscattering |
 
 `transmittanceDataSize` = transmittance bytes per pixel * transmittance ray points * transmittance height points
 
@@ -108,7 +108,7 @@ float mieAbsorptionBlue = reinterpret_cast<float*>(mappedStagingBufferPointer)[3
 
 Now you need to create a `VkSampler` with `VK_FILTER_LINEAR` (or `VK_FILTER_CUBIC_EXT` if your gpu supports it for both 2D and 3D images), `VK_SAMPLER_MIPMAP_MODE_NEAREST` (because we don't use mipmaps) and `VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE` (to prevent weirdness when sampling outside bounds).
 
-Also create one `VkImage` with `VK_IMAGE_TYPE_2D`, `VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT` and dimensions of `{ transmittanceRayPoints, transmittanceHeightPoints, 1_u32 }` for the transmittance LUT and another image with `VK_IMAGE_TYPE_3D`, same usage flags but dimensions `{ inscatteringRayPoints, inscatteringSunPoints, inscatteringHeightPoints }`.
+Also create one `VkImage` with `VK_IMAGE_TYPE_2D`, `VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT` and dimensions of `{ transmittanceRayPoints, transmittanceHeightPoints, 1 }` for the transmittance LUT and another image with `VK_IMAGE_TYPE_3D`, same usage flags but dimensions `{ inscatteringRayPoints, inscatteringSunPoints, inscatteringHeightPoints }`.
 
 Next, we copy the pixel data from the staging buffer to their respective images:
 

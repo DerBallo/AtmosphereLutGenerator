@@ -55,45 +55,45 @@ Proceed by reading the file header:
 // check version (optional)
 
 // Transmittance properties
-VkFormat transmittanceImageFormat = static_cast<VkFormat>(reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[2_u32]);
-uint32_t transmittanceBytesPerPixel = reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[3_u32];
-uint32_t transmittanceRayPoints = reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[4_u32];
-float transmittanceRayPointsCurve = reinterpret_cast<float*>(mappedStagingBufferPointer)[5_u32];
-uint32_t transmittanceHeightPoints = reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[6_u32];
-float transmittanceHeightPointsCurve = reinterpret_cast<float*>(mappedStagingBufferPointer)[7_u32];
-uint32_t transmittanceSamples = reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[8_u32];
+VkFormat transmittanceImageFormat = static_cast<VkFormat>(reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[2]);
+uint32_t transmittanceBytesPerPixel = reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[3];
+uint32_t transmittanceRayPoints = reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[4];
+float transmittanceRayPointsCurve = reinterpret_cast<float*>(mappedStagingBufferPointer)[5];
+uint32_t transmittanceHeightPoints = reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[6];
+float transmittanceHeightPointsCurve = reinterpret_cast<float*>(mappedStagingBufferPointer)[7];
+uint32_t transmittanceSamples = reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[8];
 
 // Inscattering properties
-VkFormat inscatteringImageFormat = static_cast<VkFormat>(reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[9_u32]);
-uint32_t inscatteringBytesPerPixel = reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[10_u32];
-uint32_t inscatteringRayPoints = reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[11_u32];
-float inscatteringRayPointsCurve = reinterpret_cast<float*>(mappedStagingBufferPointer)[12_u32];
-uint32_t inscatteringSunPoints = reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[13_u32];
-float inscatteringSunPointsCurve = reinterpret_cast<float*>(mappedStagingBufferPointer)[14_u32];
-uint32_t inscatteringHeightPoints = reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[15_u32];
-float inscatteringHeightPointsCurve = reinterpret_cast<float*>(mappedStagingBufferPointer)[16_u32];
-uint32_t inscatteringSamples = reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[17_u32];
+VkFormat inscatteringImageFormat = static_cast<VkFormat>(reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[9]);
+uint32_t inscatteringBytesPerPixel = reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[10];
+uint32_t inscatteringRayPoints = reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[11];
+float inscatteringRayPointsCurve = reinterpret_cast<float*>(mappedStagingBufferPointer)[12];
+uint32_t inscatteringSunPoints = reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[13];
+float inscatteringSunPointsCurve = reinterpret_cast<float*>(mappedStagingBufferPointer)[14];
+uint32_t inscatteringHeightPoints = reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[15];
+float inscatteringHeightPointsCurve = reinterpret_cast<float*>(mappedStagingBufferPointer)[16];
+uint32_t inscatteringSamples = reinterpret_cast<uint32_t*>(mappedStagingBufferPointer)[17];
 
 // Atmosphere dimensions
-float atmosphereStart = reinterpret_cast<float*>(mappedStagingBufferPointer)[18_u32];
-float seaLevel = reinterpret_cast<float*>(mappedStagingBufferPointer)[19_u32];
-float atmosphereEnd = reinterpret_cast<float*>(mappedStagingBufferPointer)[20_u32];
+float atmosphereStart = reinterpret_cast<float*>(mappedStagingBufferPointer)[18];
+float seaLevel = reinterpret_cast<float*>(mappedStagingBufferPointer)[19];
+float atmosphereEnd = reinterpret_cast<float*>(mappedStagingBufferPointer)[20];
 
 // Scattering scale heights
-float rayleighScaleHeight = reinterpret_cast<float*>(mappedStagingBufferPointer)[21_u32];
-float mieScaleHeight = reinterpret_cast<float*>(mappedStagingBufferPointer)[22_u32];
-float mieAnisotropy = reinterpret_cast<float*>(mappedStagingBufferPointer)[23_u32];
+float rayleighScaleHeight = reinterpret_cast<float*>(mappedStagingBufferPointer)[21];
+float mieScaleHeight = reinterpret_cast<float*>(mappedStagingBufferPointer)[22];
+float mieAnisotropy = reinterpret_cast<float*>(mappedStagingBufferPointer)[23];
 
 // Scattering parameters
-float rayleighScatteringRed = reinterpret_cast<float*>(mappedStagingBufferPointer)[24_u32];
-float rayleighScatteringGreen = reinterpret_cast<float*>(mappedStagingBufferPointer)[25_u32];
-float rayleighScatteringBlue = reinterpret_cast<float*>(mappedStagingBufferPointer)[26_u32];
-float mieScatteringRed = reinterpret_cast<float*>(mappedStagingBufferPointer)[27_u32];
-float mieScatteringGreen = reinterpret_cast<float*>(mappedStagingBufferPointer)[28_u32];
-float mieScatteringBlue = reinterpret_cast<float*>(mappedStagingBufferPointer)[29_u32];
-float mieAbsorptionRed = reinterpret_cast<float*>(mappedStagingBufferPointer)[30_u32];
-float mieAbsorptionGreen = reinterpret_cast<float*>(mappedStagingBufferPointer)[31_u32];
-float mieAbsorptionBlue = reinterpret_cast<float*>(mappedStagingBufferPointer)[32_u32];
+float rayleighScatteringRed = reinterpret_cast<float*>(mappedStagingBufferPointer)[24];
+float rayleighScatteringGreen = reinterpret_cast<float*>(mappedStagingBufferPointer)[25];
+float rayleighScatteringBlue = reinterpret_cast<float*>(mappedStagingBufferPointer)[26];
+float mieScatteringRed = reinterpret_cast<float*>(mappedStagingBufferPointer)[27];
+float mieScatteringGreen = reinterpret_cast<float*>(mappedStagingBufferPointer)[28];
+float mieScatteringBlue = reinterpret_cast<float*>(mappedStagingBufferPointer)[29];
+float mieAbsorptionRed = reinterpret_cast<float*>(mappedStagingBufferPointer)[30];
+float mieAbsorptionGreen = reinterpret_cast<float*>(mappedStagingBufferPointer)[31];
+float mieAbsorptionBlue = reinterpret_cast<float*>(mappedStagingBufferPointer)[32];
 ```
 Now you need to create a `VkSampler` with `VK_FILTER_LINEAR` (or `VK_FILTER_CUBIC_EXT` if your gpu supports it for both 2D and 3D images), `VK_SAMPLER_MIPMAP_MODE_NEAREST` (because we don't use mipmaps) and `VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE` (to prevent weirdness when sampling outside bounds).
 Also create one `VkImage` with `VK_IMAGE_TYPE_2D`, `VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT` and dimensions of `{ transmittanceRayPoints, transmittanceHeightPoints, 1_u32 }` for the transmittance LUT and another image with `VK_IMAGE_TYPE_3D`, same usage flags but dimensions `{ inscatteringRayPoints, inscatteringSunPoints, inscatteringHeightPoints }`.

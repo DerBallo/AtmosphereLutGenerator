@@ -40,6 +40,7 @@ Generates a binary LUT for a vulkan atmosphere shader and saves it as a file.
 | padding | padding until 256 | padding | padding |
 | 256 | transmittanceDataSize | tightly packed pixel data | transmittance |
 | transmittanceDataSize | inscatteringDataSize | tightly packed pixel data | inscattering |
+
 `transmittanceDataSize` = transmittance bytes per pixel * transmittance ray points * transmittance height points
 `inscatteringDataSize` = inscattering bytes per pixel * inscattering ray points * inscattering sun points * inscattering height points
 

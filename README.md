@@ -1,7 +1,9 @@
 # AtmosphereLutGenerator
+
 Generates a binary LUT for a vulkan atmosphere shader and saves it as a file.
 
 ## .atmosphere file data layout:
+
 | Offset (bytes) | Size (bytes) | Type | Name |
 |---|---|---|---|
 | 0 | 4 | uint32 | magic number (0x41544D4F = 'ATMO') |
@@ -46,14 +48,18 @@ Generates a binary LUT for a vulkan atmosphere shader and saves it as a file.
 `inscatteringDataSize` = inscattering bytes per pixel * inscattering ray points * inscattering sun points * inscattering height points
 
 ## An example of how to load an atmosphere file:
+
 You first need to create a vulkan host-mapped buffer and then load the entire file into it:
+
 ```cpp
 std::ifstream atmosphereFile("path/to/atmosphere/file", std::ios::binary | std::ios::ate);
 ptrdiff_t atmosphereLutSize = atmosphereFile.tellg();
 atmosphereFile.seekg(0, std::ios::beg);
 atmosphereFile.read(reinterpret_cast<char*>(mappedStagingBufferPointer), atmosphereLutSize);
 ```
+
 Proceed by reading the file header:
+
 ```cpp
 // check magic number (optional)
 // check version (optional)
@@ -99,9 +105,13 @@ float mieAbsorptionRed = reinterpret_cast<float*>(mappedStagingBufferPointer)[30
 float mieAbsorptionGreen = reinterpret_cast<float*>(mappedStagingBufferPointer)[31];
 float mieAbsorptionBlue = reinterpret_cast<float*>(mappedStagingBufferPointer)[32];
 ```
+
 Now you need to create a `VkSampler` with `VK_FILTER_LINEAR` (or `VK_FILTER_CUBIC_EXT` if your gpu supports it for both 2D and 3D images), `VK_SAMPLER_MIPMAP_MODE_NEAREST` (because we don't use mipmaps) and `VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE` (to prevent weirdness when sampling outside bounds).
+
 Also create one `VkImage` with `VK_IMAGE_TYPE_2D`, `VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT` and dimensions of `{ transmittanceRayPoints, transmittanceHeightPoints, 1_u32 }` for the transmittance LUT and another image with `VK_IMAGE_TYPE_3D`, same usage flags but dimensions `{ inscatteringRayPoints, inscatteringSunPoints, inscatteringHeightPoints }`.
+
 Next, we copy the pixel data from the staging buffer to their respective images:
+
 ```cpp
 VkBufferImageCopy inscatteringCopy  
     atmosphereHeaderSize,
@@ -165,7 +175,9 @@ vkCmdCopyBufferToImage(
 
 // end command buffer and submit
 ```
+
 Finally bind the images in your descriptor set and use a shader like this example slang shader to sample the atmosphere:
+
 ```slang
 float signPow(float x, float power)
 {
@@ -254,4 +266,5 @@ float3 sceneColor(float3 rayOrigin, float3 rayDirection)
     }
 }
 ```
+
 If you want the atmosphere properties to dynamically change in the shader, you have to use a uniform buffer or shader defines to get them in there.

@@ -113,7 +113,7 @@ Also create one `VkImage` with `VK_IMAGE_TYPE_2D`, `VK_IMAGE_USAGE_TRANSFER_DST_
 Next, we copy the pixel data from the staging buffer to their respective images:
 
 ```cpp
-VkBufferImageCopy inscatteringCopy  
+VkBufferImageCopy transmittanceCopy  
     atmosphereHeaderSize,
     {},
     {},

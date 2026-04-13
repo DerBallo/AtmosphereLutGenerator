@@ -37,9 +37,11 @@ Generates a binary LUT for a vulkan atmosphere shader and saves it as a file.
 | 120 | 4 | float | mie absorption red |
 | 124 | 4 | float | mie absorption green |
 | 128 | 4 | float | mie absorption blue |
-| 132 | padding | padding | reserved |
-| 256 | transmittance bytes per pixel * transmittance ray points * transmittance height points | tightly packed pixel data | transmittance |
-| transmittance bytes per pixel * transmittance ray points * transmittance height points | inscattering bytes per pixel * inscattering ray points * inscattering sun points * inscattering height points | tightly packed pixel data | inscattering |
+| padding | padding until 256 | padding | padding |
+| 256 | transmittanceDataSize | tightly packed pixel data | transmittance |
+| transmittanceDataSize | inscatteringDataSize | tightly packed pixel data | inscattering |
+`transmittanceDataSize` = transmittance bytes per pixel * transmittance ray points * transmittance height points
+`inscatteringDataSize` = inscattering bytes per pixel * inscattering ray points * inscattering sun points * inscattering height points
 
 ## An example of how to load an atmosphere file:
 You first need to create a vulkan host-mapped buffer and then load the entire file into it:

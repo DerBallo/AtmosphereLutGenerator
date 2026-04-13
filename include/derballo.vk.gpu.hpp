@@ -1,35 +1,48 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2026 DerBallo
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #pragma once
 
-#ifndef ve_vulkan_core_h_included
-    #define ve_vulkan_core_h_included
-    #include <vulkan/vulkan_core.h>
-#endif
-#include "derballo.debug.macros.hpp"
-#include "derballo.utils.ptr.hpp"
+#include "derballo.utils.hpp"
 #include "derballo.vk.instance.hpp"
 
 namespace ve {
     struct Gpu {
         VkPhysicalDevice handle;
-        float gpuTimestampPeriod;
         uint32_t memoryTypeCount;
         VkMemoryType memoryTypes[VK_MAX_MEMORY_TYPES];
-        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties;
-        uint32_t shaderGroupHandleStride;
+        uint32_t queueFamilyIndex;
 
-        uint32_t findMemoryTypeIndex(VkMemoryRequirements memoryRequirements, VkMemoryPropertyFlags flags)
+        uint32_t findMemoryTypeIndex(uint32_t memoryTypeBits, VkMemoryPropertyFlags flags)
         {
-            uint32_t memoryTypeIndex {};
-            for (; memoryTypeIndex < memoryTypeCount; memoryTypeIndex++) {
-                if (
-                    (memoryRequirements.memoryTypeBits & (1_u32 << memoryTypeIndex))
-                    && ((memoryTypes[memoryTypeIndex].propertyFlags & flags) == flags)
-                ) {
-                    break;
+            for (uint32_t i {}; i < memoryTypeCount; i++) {
+                if ((memoryTypeBits & (1 << i))
+                    && (memoryTypes[i].propertyFlags & flags) == flags) {
+                    return i;
                 }
             }
-            ve_assert(memoryTypeIndex < memoryTypeCount);
-            return memoryTypeIndex;
+            ve_fail("No memory type index found with requested flags!");
         }
 
         VkSurfaceCapabilitiesKHR getSurfaceCapabilities(VkSurfaceKHR surface)
@@ -54,55 +67,70 @@ namespace ve {
             uint32_t count;
             ve_vkcheck(vkEnumeratePhysicalDevices(
                 vulkanInstance.handle,
-                &count,
-                nullptr
+                addressof(count),
+                {}
             ));
+
             VkPhysicalDevice gpus[count];
             ve_vkcheck(vkEnumeratePhysicalDevices(
                 vulkanInstance.handle,
-                &count,
+                addressof(count),
                 gpus
             ));
 
+#ifndef NDEBUG
             for (uint32_t i {}; i < count; i++) {
                 VkPhysicalDeviceProperties properties;
                 vkGetPhysicalDeviceProperties(
                     gpus[i],
-                    &properties
+                    addressof(properties)
                 );
-                std::println(ANSI_MESG "Device {}: {}\n    Driver Version: {}\n    Api Version: {}" ANSI_RSET, i, properties.deviceName, properties.driverVersion, properties.apiVersion);
+
+                std::println(ANSI_MESG "Device {}:" ANSI_RSET " {}\n    Driver Version: {}\n    Api Version: {}.{}.{}.{}", i, properties.deviceName, properties.driverVersion, VK_API_VERSION_VARIANT(properties.apiVersion), VK_API_VERSION_MAJOR(properties.apiVersion), VK_API_VERSION_MINOR(properties.apiVersion), VK_API_VERSION_PATCH(properties.apiVersion));
             }
 
             std::println(ANSI_SCCS "Using Device {}!" ANSI_RSET, gpuIndex);
+#endif
+
             this->handle = gpus[gpuIndex];
 
-            this->rayTracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
-            this->rayTracingPipelineProperties.pNext = nullptr;
-            VkPhysicalDeviceProperties2 gpuProperties2;
-            gpuProperties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-            gpuProperties2.pNext = &this->rayTracingPipelineProperties;
-            vkGetPhysicalDeviceProperties2(
-                this->handle,
-                &gpuProperties2
-            );
+            VkPhysicalDeviceMemoryProperties memoryProperties;
 
-            this->gpuTimestampPeriod = gpuProperties2.properties.limits.timestampPeriod;
-            this->shaderGroupHandleStride = alignup(
-                this->rayTracingPipelineProperties.shaderGroupHandleSize,
-                this->rayTracingPipelineProperties.shaderGroupBaseAlignment
-            );
-
-            VkPhysicalDeviceMemoryProperties gpuMemoryProperties;
             vkGetPhysicalDeviceMemoryProperties(
                 this->handle,
-                &gpuMemoryProperties
+                addressof(memoryProperties)
             );
 
-            this->memoryTypeCount = gpuMemoryProperties.memoryTypeCount;
-
-            for (uint32_t i {}; i < memoryTypeCount; ++i) {
-                this->memoryTypes[i] = gpuMemoryProperties.memoryTypes[i];
+            this->memoryTypeCount = memoryProperties.memoryTypeCount;
+            for (uint32_t i {}; i < this->memoryTypeCount; ++i) {
+                this->memoryTypes[i] = memoryProperties.memoryTypes[i];
             }
+
+            uint32_t queueFamilyCount {};
+            vkGetPhysicalDeviceQueueFamilyProperties(
+                this->handle,
+                addressof(queueFamilyCount),
+                {}
+            );
+
+            VkQueueFamilyProperties queueFamilyProperties[queueFamilyCount];
+            vkGetPhysicalDeviceQueueFamilyProperties(
+                this->handle,
+                addressof(queueFamilyCount),
+                queueFamilyProperties
+            );
+
+            for (uint32_t i {}; i < queueFamilyCount; ++i) {
+                if (
+                    static_cast<bool>(queueFamilyProperties[i].queueFlags & VK_QUEUE_COMPUTE_BIT)
+                    && static_cast<bool>(queueFamilyProperties[i].queueFlags & VK_QUEUE_TRANSFER_BIT)
+                ) {
+                    this->queueFamilyIndex = i;
+                    return;
+                }
+            }
+
+            ve_fail("No compatible queue family index found!");
         }
     };
 

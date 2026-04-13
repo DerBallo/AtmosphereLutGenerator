@@ -1,3 +1,27 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2026 DerBallo
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #pragma once
 
 #include "derballo.containers.array_view.hpp"
@@ -6,45 +30,47 @@
 namespace ve {
     struct Device {
         VkDevice handle;
-        VkQueue queue;
-        PFN_vkQueuePresentKHR vkQueuePresentKHR;
-        PFN_vkAcquireNextImageKHR vkAcquireNextImageKHR;
-        PFN_vkDestroySwapchainKHR vkDestroySwapchainKHR;
-        PFN_vkGetSwapchainImagesKHR vkGetSwapchainImagesKHR;
-        PFN_vkCreateSwapchainKHR vkCreateSwapchainKHR;
-        PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
-        PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
-        PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
+        VkQueue mainQueue;
         PFN_vkGetBufferDeviceAddress vkGetBufferDeviceAddress;
-        PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
-        PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
-        PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
-        PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
-        PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
 #ifndef NDEBUG
         PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT;
 #endif
 
-        void queueWaitIdle()
+        void mainQueueWaitIdle()
         {
             ve_vkcheck_switch(
-                vkQueueSubmit(this->queue, 0_u32, nullptr, VK_NULL_HANDLE),
+                vkQueueSubmit(
+                    this->mainQueue,
+                    {},
+                    {},
+                    VK_NULL_HANDLE
+                ),
                 ve_check_case(VK_SUCCESS, {
                     ve_vkcheck(vkQueueWaitIdle(
-                        this->queue
+                        this->mainQueue
                     ));
                 });
             );
         }
 
+        void mainQueueSubmit(ArrayView<VkSubmitInfo> submits, VkFence fence)
+        {
+            ve_vkcheck(vkQueueSubmit(
+                this->mainQueue,
+                submits.length,
+                submits.address,
+                fence
+            ));
+        }
+
 #ifndef NDEBUG
-        void setObjectDebugName(VkObjectType type, uint64_t handle, const char* name)
+        void setObjectDebugName(VkObjectType type, uint64_t objectHandle, const char* name)
         {
             VkDebugUtilsObjectNameInfoEXT info {
                 VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
                 {},
                 type,
-                handle,
+                objectHandle,
                 name,
             };
 
@@ -136,26 +162,13 @@ namespace ve {
 
             vkGetDeviceQueue(
                 this->handle,
+                gpu.queueFamilyIndex,
                 0_u32,
-                0_u32,
-                addressof(this->queue)
+                addressof(this->mainQueue)
             );
 
 #define ve_load_device_function(name) name = (PFN_##name)vkGetDeviceProcAddr(this->handle, #name)
-            ve_load_device_function(vkQueuePresentKHR);
-            ve_load_device_function(vkAcquireNextImageKHR);
-            ve_load_device_function(vkDestroySwapchainKHR);
-            ve_load_device_function(vkGetSwapchainImagesKHR);
-            ve_load_device_function(vkCreateSwapchainKHR);
-            ve_load_device_function(vkDestroyAccelerationStructureKHR);
-            ve_load_device_function(vkCreateRayTracingPipelinesKHR);
-            ve_load_device_function(vkGetRayTracingShaderGroupHandlesKHR);
             ve_load_device_function(vkGetBufferDeviceAddress);
-            ve_load_device_function(vkCreateAccelerationStructureKHR);
-            ve_load_device_function(vkGetAccelerationStructureBuildSizesKHR);
-            ve_load_device_function(vkGetAccelerationStructureDeviceAddressKHR);
-            ve_load_device_function(vkCmdBuildAccelerationStructuresKHR);
-            ve_load_device_function(vkCmdTraceRaysKHR);
 #ifndef NDEBUG
             ve_load_device_function(vkSetDebugUtilsObjectNameEXT);
 #endif
@@ -183,11 +196,11 @@ namespace ve {
             VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             pNext,
             flags,
-            static_cast<uint32_t>(queueCreateInfos.length),
+            queueCreateInfos.length,
             queueCreateInfos.address,
-            static_cast<uint32_t>(enabledLayerNames.length),
+            enabledLayerNames.length,
             enabledLayerNames.address,
-            static_cast<uint32_t>(enabledExtensionNames.length),
+            enabledExtensionNames.length,
             enabledExtensionNames.address,
             {},
         };
@@ -205,8 +218,28 @@ namespace ve {
             pNext,
             flags,
             queueFamilyIndex,
-            static_cast<uint32_t>(queuePriorities.length),
+            queuePriorities.length,
             queuePriorities.address,
+        };
+    }
+
+    constexpr VkSubmitInfo makeSubmitInfo(
+        const void* pNext,
+        DualArrayView<VkSemaphore, VkPipelineStageFlags> waitSemaphoresAndWaitDstStageMasks,
+        ArrayView<VkCommandBuffer> commandBuffers,
+        ArrayView<VkSemaphore> signalSemaphores
+    )
+    {
+        return {
+            VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            pNext,
+            waitSemaphoresAndWaitDstStageMasks.length,
+            waitSemaphoresAndWaitDstStageMasks.address1,
+            waitSemaphoresAndWaitDstStageMasks.address2,
+            commandBuffers.length,
+            commandBuffers.address,
+            signalSemaphores.length,
+            signalSemaphores.address,
         };
     }
 

@@ -1,6 +1,27 @@
-#include <cstdio>
+/*
+ * MIT License
+ *
+ * Copyright (c) 2026 DerBallo
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
 
-#include "derballo.universal.hpp"
 #include "derballo.vk.buffer.hpp"
 #include "derballo.vk.command_buffer.hpp"
 #include "derballo.vk.command_pool.hpp"
@@ -16,8 +37,6 @@
 #include "derballo.vk.pnext_chain.hpp"
 #include "derballo.vk.sampler.hpp"
 #include "derballo.vk.shader_module.hpp"
-
-#include <fstream>
 
 ve::VulkanInstance ve::vulkanInstance {
     makeInstanceCreateInfo(
@@ -199,7 +218,7 @@ ve::CommandBuffer ve::singleUseCommandBuffer {
 };
 
 ve::Fence ve::singleUseFence {
-    ve::defaultFenceCreateInfo,
+    ve::Fence::defaultCreateInfo,
 };
 
 namespace ve {
@@ -343,7 +362,7 @@ namespace ve {
         };
 
         ve::Sampler transmittanceSampler {
-            makeSamplerCreateInfo(
+            ve::makeSamplerCreateInfo(
                 {},
                 {},
                 VK_FILTER_LINEAR,
@@ -381,9 +400,15 @@ namespace ve {
             ),
         };
 
-        ve::Buffer<ve::BufferType::HostSizeless> stagingBuffer {
-            stagingBufferSize,
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        ve::HostBuffer<ve::HOST_BUFFER_FEATURE_MAPPED_BIT> stagingBuffer {
+            ve::makeBufferCreateInfo(
+                {},
+                {},
+                stagingBufferSize,
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                VK_SHARING_MODE_EXCLUSIVE,
+                {}
+            ),
         };
 
         ve::DescriptorSetLayout transmittanceDescriptorSetLayout {
@@ -606,10 +631,14 @@ namespace ve {
 
         std::system(shaderCompileCommand.c_str());
 
-        std::ifstream file("shader.spv", std::ios::binary | std::ios::ate);
+        std::ifstream file(
+            "shader.spv",
+            std::ios::binary
+                | std::ios::ate
+        );
         ve_assert(file);
 
-        ptrdiff_t size = file.tellg();
+        ptrdiff_t size { file.tellg() };
         ve_assert(size > 0);
 
         file.seekg(0, std::ios::beg);
@@ -623,7 +652,7 @@ namespace ve {
                 {},
                 {},
                 {
-                    static_cast<size_t>(size),
+                    static_cast<uint32_t>(size),
                     shaderCode,
                 }
             ),
@@ -666,52 +695,45 @@ namespace ve {
             },
         };
 
-        vkBeginCommandBuffer(
-            ve::singleUseCommandBuffer.handle,
-            addressof(ve::commandBufferSingleUseBeginInfo)
+        singleUseCommandBuffer.begin(
+            ve::CommandBuffer::defaultOneTimeSubmitBeginInfo
         );
 
-        vkCmdBindDescriptorSets(
-            ve::singleUseCommandBuffer.handle,
+        singleUseCommandBuffer.cmdBindDescriptorSets(
             VK_PIPELINE_BIND_POINT_COMPUTE,
             transmittancePipelineLayout.handle,
-            0,
-            1,
-            addressof(transmittanceDescriptorSet.handle),
-            {},
+            0_u32,
+            {
+                transmittanceDescriptorSet.handle,
+            },
             {}
         );
 
-        vkCmdBindPipeline(
-            ve::singleUseCommandBuffer.handle,
+        singleUseCommandBuffer.cmdBindPipeline(
             VK_PIPELINE_BIND_POINT_COMPUTE,
             computePipelines.handles[0_u32]
         );
 
-        VkImageMemoryBarrier convertGeneralImageBarrier {
-            VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            {},
-            0,
-            VK_ACCESS_SHADER_WRITE_BIT,
-            VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_GENERAL,
-            VK_QUEUE_FAMILY_IGNORED,
-            VK_QUEUE_FAMILY_IGNORED,
-            transmittanceImage.handle,
-            subresourceRange,
-        };
-
-        vkCmdPipelineBarrier(
-            ve::singleUseCommandBuffer.handle,
+        singleUseCommandBuffer.cmdPipelineBarrier(
             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
             {},
             {},
             {},
-            {},
-            {},
-            1_u32,
-            addressof(convertGeneralImageBarrier)
+            {
+                {
+                    VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                    {},
+                    0,
+                    VK_ACCESS_SHADER_WRITE_BIT,
+                    VK_IMAGE_LAYOUT_UNDEFINED,
+                    VK_IMAGE_LAYOUT_GENERAL,
+                    VK_QUEUE_FAMILY_IGNORED,
+                    VK_QUEUE_FAMILY_IGNORED,
+                    transmittanceImage.handle,
+                    subresourceRange,
+                },
+            }
         );
 
         vkCmdDispatch(
@@ -721,114 +743,100 @@ namespace ve {
             1_u32
         );
 
-        VkImageMemoryBarrier convertTransferImageBarrier {
-            VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            {},
-            VK_ACCESS_SHADER_WRITE_BIT,
-            VK_ACCESS_TRANSFER_READ_BIT,
-            VK_IMAGE_LAYOUT_GENERAL,
-            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            VK_QUEUE_FAMILY_IGNORED,
-            VK_QUEUE_FAMILY_IGNORED,
-            transmittanceImage.handle,
-            subresourceRange,
-        };
-
-        vkCmdPipelineBarrier(
-            ve::singleUseCommandBuffer.handle,
+        singleUseCommandBuffer.cmdPipelineBarrier(
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
             VK_PIPELINE_STAGE_TRANSFER_BIT,
             {},
             {},
             {},
-            {},
-            {},
-            1_u32,
-            addressof(convertTransferImageBarrier)
+            {
+                {
+                    VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                    {},
+                    VK_ACCESS_SHADER_WRITE_BIT,
+                    VK_ACCESS_TRANSFER_READ_BIT,
+                    VK_IMAGE_LAYOUT_GENERAL,
+                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    VK_QUEUE_FAMILY_IGNORED,
+                    VK_QUEUE_FAMILY_IGNORED,
+                    transmittanceImage.handle,
+                    subresourceRange,
+                },
+            }
         );
 
-        VkBufferImageCopy transmittanceCopyRegion {
-            atmosphereHeaderSize,
-            {},
-            {},
-            {
-                VK_IMAGE_ASPECT_COLOR_BIT,
-                {},
-                {},
-                1_u32,
-            },
-            {},
-            {
-                properties.transmittanceRayPoints,
-                properties.transmittanceHeightPoints,
-                1_u32,
-            },
-        };
-
-        vkCmdCopyImageToBuffer(
-            ve::singleUseCommandBuffer.handle,
+        singleUseCommandBuffer.cmdCopyImageToBuffer(
             transmittanceImage.handle,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             stagingBuffer.handle,
-            1_u32,
-            addressof(transmittanceCopyRegion)
+            {
+                {
+                    atmosphereHeaderSize,
+                    {},
+                    {},
+                    {
+                        VK_IMAGE_ASPECT_COLOR_BIT,
+                        {},
+                        {},
+                        1_u32,
+                    },
+                    {},
+                    {
+                        properties.transmittanceRayPoints,
+                        properties.transmittanceHeightPoints,
+                        1_u32,
+                    },
+                },
+            }
         );
 
-        vkCmdBindDescriptorSets(
-            ve::singleUseCommandBuffer.handle,
+        singleUseCommandBuffer.cmdBindDescriptorSets(
             VK_PIPELINE_BIND_POINT_COMPUTE,
             inscatteringPipelineLayout.handle,
-            0,
-            1,
-            addressof(inscatteringDescriptorSet.handle),
-            {},
+            0_u32,
+            {
+                inscatteringDescriptorSet.handle,
+            },
             {}
         );
 
-        vkCmdBindPipeline(
-            ve::singleUseCommandBuffer.handle,
+        singleUseCommandBuffer.cmdBindPipeline(
             VK_PIPELINE_BIND_POINT_COMPUTE,
             computePipelines.handles[1_u32]
         );
 
-        VkImageMemoryBarrier convertGeneralImageBarriers[] {
-            {
-                VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-                {},
-                VK_ACCESS_TRANSFER_READ_BIT,
-                VK_ACCESS_SHADER_READ_BIT,
-                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                VK_QUEUE_FAMILY_IGNORED,
-                VK_QUEUE_FAMILY_IGNORED,
-                transmittanceImage.handle,
-                subresourceRange,
-            },
-            {
-                VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-                {},
-                0,
-                VK_ACCESS_SHADER_WRITE_BIT,
-                VK_IMAGE_LAYOUT_UNDEFINED,
-                VK_IMAGE_LAYOUT_GENERAL,
-                VK_QUEUE_FAMILY_IGNORED,
-                VK_QUEUE_FAMILY_IGNORED,
-                inscatteringImage.handle,
-                subresourceRange,
-            },
-        };
-
-        vkCmdPipelineBarrier(
-            ve::singleUseCommandBuffer.handle,
+        singleUseCommandBuffer.cmdPipelineBarrier(
             VK_PIPELINE_STAGE_TRANSFER_BIT,
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
             {},
             {},
             {},
-            {},
-            {},
-            lengthof(convertGeneralImageBarriers),
-            convertGeneralImageBarriers
+            {
+                {
+                    VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                    {},
+                    VK_ACCESS_TRANSFER_READ_BIT,
+                    VK_ACCESS_SHADER_READ_BIT,
+                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    VK_QUEUE_FAMILY_IGNORED,
+                    VK_QUEUE_FAMILY_IGNORED,
+                    transmittanceImage.handle,
+                    subresourceRange,
+                },
+                {
+                    VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                    {},
+                    {},
+                    VK_ACCESS_SHADER_WRITE_BIT,
+                    VK_IMAGE_LAYOUT_UNDEFINED,
+                    VK_IMAGE_LAYOUT_GENERAL,
+                    VK_QUEUE_FAMILY_IGNORED,
+                    VK_QUEUE_FAMILY_IGNORED,
+                    inscatteringImage.handle,
+                    subresourceRange,
+                },
+            }
         );
 
         vkCmdDispatch(
@@ -838,89 +846,78 @@ namespace ve {
             properties.inscatteringHeightPoints >> 2_u32
         );
 
-        convertTransferImageBarrier.image = inscatteringImage.handle;
-
-        vkCmdPipelineBarrier(
-            ve::singleUseCommandBuffer.handle,
+        singleUseCommandBuffer.cmdPipelineBarrier(
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
             VK_PIPELINE_STAGE_TRANSFER_BIT,
             {},
             {},
             {},
-            {},
-            {},
-            1_u32,
-            addressof(convertTransferImageBarrier)
+            {
+                {
+                    VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                    {},
+                    VK_ACCESS_SHADER_WRITE_BIT,
+                    VK_ACCESS_TRANSFER_READ_BIT,
+                    VK_IMAGE_LAYOUT_GENERAL,
+                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    VK_QUEUE_FAMILY_IGNORED,
+                    VK_QUEUE_FAMILY_IGNORED,
+                    inscatteringImage.handle,
+                    subresourceRange,
+                },
+            }
         );
 
-        VkBufferImageCopy inscatteringCopyRegion {
-            atmosphereHeaderSize + transmittanceDataSize,
-            {},
-            {},
-            {
-                VK_IMAGE_ASPECT_COLOR_BIT,
-                {},
-                {},
-                1_u32,
-            },
-            {},
-            {
-                properties.inscatteringRayPoints,
-                properties.inscatteringSunPoints,
-                properties.inscatteringHeightPoints,
-            },
-        };
-
-        vkCmdCopyImageToBuffer(
-            ve::singleUseCommandBuffer.handle,
+        singleUseCommandBuffer.cmdCopyImageToBuffer(
             inscatteringImage.handle,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             stagingBuffer.handle,
-            1_u32,
-            addressof(inscatteringCopyRegion)
+            {
+                {
+                    atmosphereHeaderSize + transmittanceDataSize,
+                    {},
+                    {},
+                    {
+                        VK_IMAGE_ASPECT_COLOR_BIT,
+                        {},
+                        {},
+                        1_u32,
+                    },
+                    {},
+                    {
+                        properties.inscatteringRayPoints,
+                        properties.inscatteringSunPoints,
+                        properties.inscatteringHeightPoints,
+                    },
+                },
+            }
         );
 
-        vkEndCommandBuffer(
-            ve::singleUseCommandBuffer.handle
-        );
+        singleUseCommandBuffer.end();
 
-        VkSubmitInfo submitInfo {
-            VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            {},
-            {},
-            {},
-            {},
-            1_u32,
-            addressof(ve::singleUseCommandBuffer.handle),
-            {},
-            {},
-        };
-
-        ve_vkcheck(vkQueueSubmit(
-            ve::device.queue,
-            1_u32,
-            addressof(submitInfo),
+        ve::device.mainQueueSubmit(
+            {
+                makeSubmitInfo(
+                    {},
+                    {},
+                    {
+                        ve::singleUseCommandBuffer.handle,
+                    },
+                    {}
+                ),
+            },
             ve::singleUseFence.handle
-        ));
+        );
 
-        ve_vkcheck(vkWaitForFences(
-            ve::device.handle,
-            1_u32,
-            addressof(ve::singleUseFence.handle),
-            true,
+        ve::singleUseFence.wait(
             UINT64_MAX
-        ));
+        );
 
-        ve_vkcheck(vkResetFences(
-            ve::device.handle,
-            1_u32,
-            addressof(ve::singleUseFence.handle)
-        ));
+        ve::singleUseFence.reset();
 
-        ve_vkcheck(vkResetCommandBuffer(
-            ve::singleUseCommandBuffer.handle,
+        ve::singleUseCommandBuffer.reset(
             {}
-        ));
+        );
 
         // Magic number 'ATMO'
         reinterpret_cast<uint32_t*>(stagingBuffer.data)[0_u32] = 0x41544D4F_u32;
@@ -969,7 +966,14 @@ namespace ve {
         reinterpret_cast<float*>(stagingBuffer.data)[31_u32] = properties.mieAbsorptionGreen;
         reinterpret_cast<float*>(stagingBuffer.data)[32_u32] = properties.mieAbsorptionBlue;
 
-        std::ofstream(fileName, std::ios::binary).write(reinterpret_cast<char*>(stagingBuffer.data), stagingBufferSize);
+        std::ofstream(
+            fileName,
+            std::ios::binary
+        )
+            .write(
+                reinterpret_cast<char*>(stagingBuffer.data),
+                stagingBufferSize
+            );
     }
 }
 

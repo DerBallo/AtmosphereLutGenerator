@@ -1,3 +1,27 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2026 DerBallo
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #pragma once
 
 #include "derballo.math.scalar.hpp"
@@ -792,89 +816,3 @@ struct alignas(16) double3_t {
         z = other.z;
     }
 };
-
-/*
-struct alignas(16) int128_3_t {
-    int128_t x, y, z;
-
-    constexpr void operator+=(float3_t other) noexcept
-    {
-        x += meters_to_units_f(other.x);
-        y += meters_to_units_f(other.y);
-        z += meters_to_units_f(other.z);
-    }
-
-    constexpr void operator-=(float3_t other) noexcept
-    {
-        x -= meters_to_units_f(other.x);
-        y -= meters_to_units_f(other.y);
-        z -= meters_to_units_f(other.z);
-    }
-
-    constexpr float3_t to_meters() noexcept
-    {
-        return {
-            units_to_meters_f(x),
-            units_to_meters_f(y),
-            units_to_meters_f(z),
-        };
-    }
-
-    constexpr float3_t relative_position(int128_3_t& other) noexcept
-    {
-        return {
-            units_to_meters_f(x - other.x),
-            units_to_meters_f(y - other.y),
-            units_to_meters_f(z - other.z),
-        };
-    }
-
-    constexpr int128_t approx_length()
-    {
-        int128_t xabs = std::abs(x);
-        int128_t yabs = std::abs(y);
-        int128_t zabs = std::abs(z);
-
-        int128_t max = (xabs > yabs && xabs > zabs) ? xabs : ((yabs > zabs) ? yabs : zabs);
-        int128_t sum = xabs + yabs + zabs;
-
-        return (max + sum) >> 1;
-    }
-
-    constexpr int128_3_t()
-        : x(0_i128), y(0_i128), z(0_i128)
-    {
-    }
-
-    constexpr int128_3_t(int128_t x, int128_t y, int128_t z)
-        : x(x), y(y), z(z)
-    {
-    }
-
-    constexpr int128_3_t(const int128_3_t& other)
-        : x(other.x), y(other.y), z(other.z)
-    {
-    }
-};
-
-struct uint128_3_t {
-    uint128_t x;
-    uint128_t y;
-    uint128_t z;
-
-    constexpr uint128_3_t()
-        : x(0_u128), y(0_u128), z(0_u128)
-    {
-    }
-
-    constexpr uint128_3_t(int128_t x, int128_t y, int128_t z)
-        : x(x), y(y), z(z)
-    {
-    }
-
-    constexpr uint128_3_t(const uint128_3_t& other)
-        : x(other.x), y(other.y), z(other.z)
-    {
-    }
-};
-*/

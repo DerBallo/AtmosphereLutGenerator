@@ -1,18 +1,30 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2026 DerBallo
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #pragma once
 
-#ifndef ve_vulkan_core_h_included
-    #define ve_vulkan_core_h_included
-    #include <vulkan/vulkan_core.h>
-#endif
-#ifndef ve_std_concepts_included
-    #define ve_std_concepts_included
-    #include <concepts>
-#endif
-#ifndef ve_std_tuple_included
-    #define ve_std_tuple_included
-    #include <tuple>
-#endif
-#include "derballo.utils.macros.hpp"
+#include "derballo.utils.hpp"
 
 namespace ve {
     template <typename T>
